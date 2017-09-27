@@ -213,6 +213,20 @@ dF.1$y.pH.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Compariso
 
 write.csv(dF.1,paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
 
+dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
+
+#plot contribution of distance from forest to yield
+ggplot(dF.1,aes(distance.cont,y.fdist))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Distance from Forest [m]")+ylab("Contribution to Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black'))
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig2_distancecontribtoyield.pdf",height=6,width=6)
+
 #check components to modeled yield
 dF.1$check<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+dF.1$y.biomass+dF.1$y.cdensity+dF.1$y.fdist+dF.1$y.fert+dF.1$y.smoist+dF.1$y.age+dF.1$y.pH
 
@@ -282,7 +296,7 @@ dF.3$rent.ha<-hhold.vars[match(dF.3$plot,hhold.vars$Plot),"Rent.cedis"]/dF.3$lan
 
 #load input and labour costs
 hhold.costs<-read.csv(paste0(getwd(),"/HouseholdData/Labour.Input.Costs.csv"))
-dF.3[,24:30]<-hhold.costs[match(dF.3$plot,hhold.costs$PLOTCODE),2:8]
+dF.3[,(ncol(dF.3)+1):(ncol(dF.3)+7)]<-hhold.costs[match(dF.3$plot,hhold.costs$PLOTCODE),2:8]
 #dF.3$inputs<-hhold.costs[match(dF.3$plot,hhold.costs$PLOTCODE),"Input.ha"]
 
 write.csv(dF.3,paste0(getwd(),"/Analysis/ES/Income.calculation.inputs.",season,".csv"))
