@@ -326,3 +326,106 @@ ggsave(paste0(getwd(),"/Analysis/ES/Yield_potential_increase_pertree_",season,".
 #load inputs for income calculations
 dF.3<-read.csv(paste0(getwd(),"/Analysis/ES/Income.calculation.inputs.",season,".csv"))
 
+#look at yield soil pH relationship
+df<-read.csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
+
+g1<-ggplot(df,aes(pH,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Soil pH")+ylab("Median Yield [kg/tree]")+theme(
+  plot.background = element_blank()
+  ,panel.background = element_blank()
+  ,panel.grid.major = element_blank()
+  ,panel.grid.minor = element_blank()
+  ,panel.border = element_blank()
+  ,axis.line.x = element_line(color = 'black')
+  ,axis.line.y = element_line(color = 'black')
+  #,axis.text.x=element_blank()
+  #,axis.text.x=element_text(angle = 45,hjust=1)
+  ,legend.title=element_blank()
+  ,legend.position="top")
+
+g2<-ggplot(df,aes(soil.moist,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Soil Moisture")+ylab("Median Yield [kg/tree]")+theme(
+  plot.background = element_blank()
+  ,panel.background = element_blank()
+  ,panel.grid.major = element_blank()
+  ,panel.grid.minor = element_blank()
+  ,panel.border = element_blank()
+  ,axis.line.x = element_line(color = 'black')
+  ,axis.line.y = element_line(color = 'black')
+  #,axis.text.x=element_blank()
+  #,axis.text.x=element_text(angle = 45,hjust=1)
+  ,legend.title=element_blank()
+  ,legend.position="top")
+
+g3<-ggplot(df,aes(Age.of.cocoa,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Age of Cocoa")+ylab("Median Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')
+    #,axis.text.x=element_blank()
+    #,axis.text.x=element_text(angle = 45,hjust=1)
+    ,legend.title=element_blank()
+    ,legend.position="top")
+
+g4<-ggplot(df,aes(Biomass,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Distance to Biomass")+ylab("Median Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')
+    #,axis.text.x=element_blank()
+    #,axis.text.x=element_text(angle = 45,hjust=1)
+    ,legend.title=element_blank()
+    ,legend.position="top")
+
+g5<-ggplot(df,aes(Cocoa.density,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Cocoa Density")+ylab("Median Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')
+    #,axis.text.x=element_blank()
+    #,axis.text.x=element_text(angle = 45,hjust=1)
+    ,legend.title=element_blank()
+    ,legend.position="top")
+
+g6<-ggplot(df,aes(distance.cont,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Distance from Forest")+ylab("Median Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')
+    #,axis.text.x=element_blank()
+    #,axis.text.x=element_text(angle = 45,hjust=1)
+    ,legend.title=element_blank()
+    ,legend.position="top")
+
+g7<-ggplot(df,aes(No.applications.yr,HeavyCrop)) + geom_point() + stat_smooth(method="lm")+
+  xlab("Average Number of Fertiliser Applications [/yr]")+ylab("Median Yield [kg/tree]")+theme(
+    plot.background = element_blank()
+    ,panel.background = element_blank()
+    ,panel.grid.major = element_blank()
+    ,panel.grid.minor = element_blank()
+    ,panel.border = element_blank()
+    ,axis.line.x = element_line(color = 'black')
+    ,axis.line.y = element_line(color = 'black')
+    #,axis.text.x=element_blank()
+    #,axis.text.x=element_text(angle = 45,hjust=1)
+    ,legend.title=element_blank()
+    ,legend.position="top")
+
+g8<-grid.arrange(g7,g4,g2,g6,g1,g5,g3,ncol=3)
+ggsave(paste0(getwd(),"/Analysis/ES/YieldModel.LinearComparisons.pdf"),g8,height=10,width=10)

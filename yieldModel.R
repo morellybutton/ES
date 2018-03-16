@@ -17,7 +17,7 @@ dF<-read.csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
 options(na.action = "na.omit")
 
 #2014/15
-(fm01<-lm(HeavyCrop.med~Age.of.cocoa+Cocoa.density+pH+soil.moist+meanT+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
+(fm01<-lm(HeavyCrop.med~Age.of.cocoa+Cocoa.density+pH+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
 summary(fm01)
 fm01s<-standardize(fm01)
 summary(fm01s)
@@ -38,6 +38,24 @@ topmodels1.avg<-model.avg(dredg.m02)
 sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta2.txt"))
 summary(topmodels1.avg)
 sink()
+
+#check for non-linearities
+options(na.action = "na.omit")
+#2014/15
+(fm02<-lm(HeavyCrop.med~Age.of.cocoa+Cocoa.density+pH+I(pH^2)+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
+summary(fm02)
+fm02s<-standardize(fm02)
+summary(fm02s)
+
+options(na.action = "na.fail")
+fm02d<-dredge(fm02s)
+
+#delta AIC = 6, 30 models
+dredg.m02<-subset(fm02d,delta<6)
+topmodels2.avg<-model.avg(dredg.m02)
+#sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta6.txt"))
+summary(topmodels2.avg)
+#sink()
 
 #assign candidate set of models manually, removing redundant models using nesting rule
 cand.set<-list()
