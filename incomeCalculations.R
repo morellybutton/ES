@@ -1,6 +1,4 @@
-library(plyr)
-library(ggplot2)
-library(reshape)
+library(tidyverse)
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 
@@ -31,23 +29,14 @@ dF.4<-data.frame(dF.3$plot,stringsAsFactors = F)
 dF.4[,2:4]<-cbind(dF.3$o.final.income,dF.3$o.lbc.loss,dF.3$o.sharerent.loss)
 colnames(dF.4)<-c("plot","Cocoa.income","LBC.loss","Share.Rent")
 
-dF.4<-melt(dF.4,id.vars="plot")
+dF.4<-dF.4 %>% gather(key="variable",value="value",-plot)
 dF.4$variable<-factor(dF.4$variable,labels=c("Cocoa Income\nLess Rent","LBC Loss","Shareholder/Rent"))
-dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$yield.pot,decreasing=T),"plot"],sep=",")))
+dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$o.final.income,decreasing=T),"plot"],sep=",")))
 
 ggplot(dF.4,aes(plot,value,fill=variable))+geom_bar(stat="identity")+ylab("Gross Cocoa Income [cedis/ha]")+
-  xlab("Farm")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    ,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1)
+                                      ,legend.title=element_blank()
+                                      ,legend.position="top")
 ggsave(paste0(getwd(),"/Analysis/ES/CocoaIncome_estimated_",season,".median.pdf"))
 
 #calculate total income farmer gets (without considering outlays) [multiply by land area]
@@ -60,50 +49,32 @@ dF.3$o.finalp.income<-dF.3$o.estp.income/dF.3$land.area
 
 #bar plot of current income minus cultivation costs
 dF.4<-data.frame(dF.3$plot,stringsAsFactors = F)
-dF.4[,2:7]<-cbind(dF.3$o.finalp.income,dF.3$Fertiliser.Compost.ha,dF.3$Herb.Fung.ha,dF.3$Pest.ha,dF.3$Weeding.ha,dF.3$Harvest.ha)
+dF.4[,2:7]<-cbind(dF.3$o.finalp.income,-1*dF.3$Fertiliser.Compost.ha,-1*dF.3$Herb.Fung.ha,-1*dF.3$Pest.ha,-1*dF.3$Weeding.ha,-1*dF.3$Harvest.ha)
 colnames(dF.4)<-c("plot","Cocoa.income","Fert.cost","Herb.Fung.cost","Pest.cost","Weeding.cost","Harvesting.cost")
 
-dF.4<-melt(dF.4,id.vars="plot")
+dF.4<-dF.4 %>% gather(key="variable",value="value",-plot)
 dF.4$variable<-factor(dF.4$variable,labels=c("Estimated Cocoa Income\n(less inputs)","Fertiliser/Compost Cost","Herbicide/Fungicide Cost","Pesticide Cost","Weeding Labour Cost","Harvesting Labour Cost"))
-dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$yield.pot,decreasing=T),"plot"],sep=",")))
+dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$o.final.income,decreasing=T),"plot"],sep=",")))
 
 ggplot(dF.4,aes(plot,value,fill=variable))+geom_bar(stat="identity")+ylab("Estimated Cocoa Income [cedis/ha]")+
-  xlab("Farm")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    ,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1)
+                                     ,legend.title=element_blank()
+                                     ,legend.position="top")
 ggsave(paste0(getwd(),"/Analysis/ES/CocoaIncome.ha_estimated_",season,".median.pdf"))
 
 #bar plot of current income minus cultivation costs
 dF.4<-data.frame(dF.3$plot,stringsAsFactors = F)
-dF.4[,2:7]<-cbind(dF.3$o.estp.income,dF.3$Fertiliser.Compost.ha*dF.3$land.area,dF.3$Herb.Fung.ha*dF.3$land.area,dF.3$Pest.ha*dF.3$land.area,dF.3$Weeding.ha*dF.3$land.area,dF.3$Harvest.ha*dF.3$land.area)
+dF.4[,2:7]<-cbind(dF.3$o.estp.income,-1*dF.3$Fertiliser.Compost.ha*dF.3$land.area,-1*dF.3$Herb.Fung.ha*dF.3$land.area,-1*dF.3$Pest.ha*dF.3$land.area,-1*dF.3$Weeding.ha*dF.3$land.area,-1*dF.3$Harvest.ha*dF.3$land.area)
 colnames(dF.4)<-c("plot","Cocoa.income","Fert.cost","Herb.Fung.cost","Pest.cost","Weeding.cost","Harvesting.cost")
 
-dF.4<-melt(dF.4,id.vars="plot")
+dF.4<-dF.4 %>% gather(key="variable",value="value",-plot)
 dF.4$variable<-factor(dF.4$variable,labels=c("Estimated Cocoa Income","Fertiliser/Compost Cost","Herbicide/Fungicide Cost","Pesticide Cost","Weeding Labour Cost","Harvesting Labour Cost"))
-dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$yield.pot,decreasing=T),"plot"],sep=",")))
+dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$o.final.income,decreasing=T),"plot"],sep=",")))
 
 ggplot(dF.4,aes(plot,value,fill=variable))+geom_bar(stat="identity")+ylab("Total Estimated Cocoa Income")+
-  xlab("Farm")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    ,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1)
+                                     ,legend.title=element_blank()
+                                     ,legend.position="top")
 ggsave(paste0(getwd(),"/Analysis/ES/CocoaIncome.tot_estimated_",season,".median.pdf"))
 
 #calculate income estimate from measured yield
@@ -124,26 +95,17 @@ dF.3$i.final.income<-dF.3$i.pot.income-dF.3$i.lbc.loss-dF.3$i.sharerent.loss
 
 #bar plot of current income ordered by potential yield increase
 dF.4<-data.frame(dF.3$plot,stringsAsFactors = F)
-dF.4[,2:4]<-cbind(dF.3$i.final.income,dF.3$i.lbc.loss,dF.3$i.sharerent.loss)
+dF.4[,2:4]<-cbind(dF.3$i.final.income,-1*dF.3$i.lbc.loss,-1*dF.3$i.sharerent.loss)
 colnames(dF.4)<-c("plot","Cocoa.income","LBC.loss","Share.Rent")
 
-dF.4<-melt(dF.4,id.vars="plot")
+dF.4<-dF.4 %>% gather(key="variable",value="value",-plot)
 dF.4$variable<-factor(dF.4$variable,labels=c("Actual Cocoa Income","LBC Loss","Shareholder/Rent"))
 dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$yield.pot,decreasing=T),"plot"],sep=",")))
 
 ggplot(dF.4,aes(plot,value,fill=variable))+geom_bar(stat="identity")+ylab("Potential Increased Cocoa Income [cedis/ha]")+
-  xlab("Farm")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    ,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1)
+                                     ,legend.title=element_blank()
+                                     ,legend.position="top")
 ggsave(paste0(getwd(),"/Analysis/ES/CocoaIncome_potential_increase",season,".median.pdf"))
 
 write.csv(dF.3,paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))
