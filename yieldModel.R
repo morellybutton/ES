@@ -3,29 +3,37 @@
 library(MuMIn)
 library(arm)
 library(AICcmodavg)
-
-library(plyr)
-library(ggplot2)
-library(reshape)
+library(gridExtra)
+library(tidyverse)
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 year="2014"
 season="1415"
 
-dF<-read.csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
+dF<-read_csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
 
 options(na.action = "na.omit")
 
+(fm10<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+Canopy.gap.dry+Cocoa.density+pH+Mist+soil.moist+PropCPB+PropBP+No.applications.yr+Biomass+distance.cont,data=dF))
+summary(fm10)
+fm10s<-standardize(fm10)
+summary(fm10s)
+
+(fm11<-lm(HeavyCrop~Canopy.gap.dry+Cocoa.density+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
+summary(fm11)
+fm11s<-standardize(fm11)
+summary(fm11s)
+
 #2014/15
-(fm01<-lm(HeavyCrop.med~Age.of.cocoa+Cocoa.density+pH+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
+(fm01<-lm(HeavyCrop~Age.of.cocoa+Cocoa.density+pH+Tot.P+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
 summary(fm01)
 fm01s<-standardize(fm01)
 summary(fm01s)
 
 options(na.action = "na.fail")
-fm01d<-dredge(fm01s)
+fm01d<-dredge(fm11s)
 
-#delta AIC = 6, 30 models
+#delta AIC = 6, 12 models
 dredg.m01<-subset(fm01d,delta<6)
 topmodels1.avg<-model.avg(dredg.m01)
 sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta6.txt"))
@@ -39,24 +47,6 @@ sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta2.txt")
 summary(topmodels1.avg)
 sink()
 
-#check for non-linearities
-options(na.action = "na.omit")
-#2014/15
-(fm02<-lm(HeavyCrop.med~Age.of.cocoa+Cocoa.density+pH+I(pH^2)+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
-summary(fm02)
-fm02s<-standardize(fm02)
-summary(fm02s)
-
-options(na.action = "na.fail")
-fm02d<-dredge(fm02s)
-
-#delta AIC = 6, 30 models
-dredg.m02<-subset(fm02d,delta<6)
-topmodels2.avg<-model.avg(dredg.m02)
-#sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta6.txt"))
-summary(topmodels2.avg)
-#sink()
-
 #assign candidate set of models manually, removing redundant models using nesting rule
 cand.set<-list()
 #delta 2 only has two models
@@ -65,7 +55,7 @@ cand.set[[2]]<-standardize(lm(HeavyCrop.med~Biomass+Cocoa.density+distance.cont+
 
 cand.set1<-list()
 
-#delta 6 has eight  models
+#orig. delta 6 has eight  models
 cand.set1[[1]]<-standardize(lm(HeavyCrop.med~Age.of.cocoa+Biomass+Cocoa.density+distance.cont+No.applications.yr+soil.moist,data=dF))
 cand.set1[[2]]<-standardize(lm(HeavyCrop.med~Biomass+Cocoa.density+distance.cont+No.applications.yr+soil.moist,data=dF))
 cand.set1[[3]]<-standardize(lm(HeavyCrop.med~Age.of.cocoa+Biomass+Cocoa.density+No.applications.yr+soil.moist,data=dF))
@@ -75,6 +65,12 @@ cand.set1[[6]]<-standardize(lm(HeavyCrop.med~Biomass+Cocoa.density+distance.cont
 cand.set1[[7]]<-standardize(lm(HeavyCrop.med~Age.of.cocoa+Biomass+Cocoa.density+distance.cont+No.applications.yr,data=dF))
 cand.set1[[8]]<-standardize(lm(HeavyCrop.med~Age.of.cocoa+Biomass+Cocoa.density+No.applications.yr,data=dF))
 cand.set1[[9]]<-standardize(lm(HeavyCrop.med~Biomass+Cocoa.density+No.applications.yr,data=dF))
+
+#redone. delta 6 has four  models
+cand.set1[[1]]<-standardize(lm(HeavyCrop~Biomass+Canopy.gap.dry+Cocoa.density+distance.cont+No.applications.yr+PropCPB,data=dF))
+cand.set1[[2]]<-standardize(lm(HeavyCrop~Biomass+Cocoa.density+distance.cont+No.applications.yr+PropCPB,data=dF))
+cand.set1[[3]]<-standardize(lm(HeavyCrop~Biomass+Cocoa.density+distance.cont+No.applications.yr,data=dF))
+cand.set1[[4]]<-standardize(lm(HeavyCrop~Biomass+Cocoa.density+No.applications.yr,data=dF))
 
 cand.set<-cand.set1
 
@@ -123,42 +119,29 @@ tmp<-read.csv(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,"_delta6.med
 tmp<-tmp[!is.na(tmp$full),]
 
 #for delta 6
-tmp$Comparison<-factor(tmp$Comparison,levels=tmp[order(tmp$Importance,decreasing=T),"Comparison"],labels=c("Distance to\nBiomass","Cocoa\nDensity","Avg Fertiliser\nApplications [yr-1]","Soil\nMoisture","Distance\nFrom Forest","Age of Cocoa","Soil pH","(Intercept)"))
+tmp$Comparison<-factor(tmp$Comparison,levels=tmp[order(tmp$Importance,decreasing=T),"Comparison"],labels=c("Distance to\nBiomass","Cocoa\nDensity","Avg Fertiliser\nApplications [yr-1]","Distance\nFrom Forest","Capsid Incidence","Canopy Gap","(Intercept)"))
 
 #without outlier
 #tmp$Comparison<-factor(tmp$Comparison,levels=tmp[order(tmp$Importance,decreasing=T),"Comparison"],labels=c("Distance to\nBiomass","Distance\nFrom Forest","Soil\nMoisture","Cocoa\nDensity","Mistletoe","Avg Fertiliser\nApplications [yr-1]","(Intercept)"))
-
-#add ES Component
-tmp[tmp$Comparison=="Phosphorous"|tmp$Comparison=="Soil\nMoisture"|tmp$Comparison=="Soil pH"|tmp$Comparison=="Nitrogen"|tmp$Comparison=="Soil pH:\nSoil Moisture","Component"]<-"Soil"
-tmp[tmp$Comparison=="Distance to\nBiomass"|tmp$Comparison=="Shade Density"|tmp$Comparison=="Harvesting\nLabour"|tmp$Comparison=="Cocoa\nDensity"|tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]"|tmp$Comparison=="Canopy Gap"|tmp$Comparison=="Age of Cocoa"|tmp$Comparison=="Yield\nVariation","Component"]<-"Management"
-tmp[tmp$Comparison=="Black Pod\nIncidence"|tmp$Comparison=="Capsid Incidence"|tmp$Comparison=="Mistletoe","Component"]<-"Disease"
-tmp[tmp$Comparison=="Cherelle Set"|tmp$Comparison=="Pollination\nTreatment"|tmp$Comparison=="Flower\nBuds"|tmp$Comparison=="Biomass:Cherelle Set","Component"]<-"Pollination"
-tmp[tmp$Comparison=="Mean\nTemperature"|tmp$Comparison=="Flower Buds:\nMean Temperature"|tmp$Comparison=="Water\nStress","Component"]<-"Micro-Climate"
-tmp[tmp$Comparison=="Distance\nFrom Forest"|tmp$Comparison=="Forest Distance:Mistletoe","Component"]<-"Landscape"
-
-tmp$Component<-factor(tmp$Component)
-
 vars<-gsub("z.","",tmp$X)
 vars<-vars[vars!="(Intercept)"]
 dF.1<-dF[,match(vars,colnames(dF))]
 
 #for delta 6
-dF.2<-data.frame(cbind(mean(dF.1$Biomass,na.rm=T),sd(dF.1$Biomass,na.rm=T),mean(dF.1$Cocoa.density,na.rm=T),sd(dF.1$Cocoa.density,na.rm=T),mean(dF.1$No.applications.yr,na.rm=T),sd(dF.1$No.applications.yr,na.rm=T),mean(dF.1$soil.moist,na.rm=T),sd(dF.1$soil.moist,na.rm=T),mean(dF.1$distance.cont,na.rm=T),sd(dF.1$distance.cont,na.rm=T),mean(dF.1$Age.of.cocoa,na.rm=T),sd(dF.1$Age.of.cocoa,na.rm=T),mean(dF.1$pH,na.rm=T),sd(dF.1$pH,na.rm=T)),stringsAsFactors = F)
-colnames(dF.2)<-c(paste0(vars[1],".m"),paste0(vars[1],".sd"),paste0(vars[2],".m"),paste0(vars[2],".sd"),paste0(vars[3],".m"),paste0(vars[3],".sd"),paste0(vars[4],".m"),paste0(vars[4],".sd"),paste0(vars[5],".m"),paste0(vars[5],".sd"),paste0(vars[6],".m"),paste0(vars[6],".sd"),paste0(vars[7],".m"),paste0(vars[7],".sd"))
+dF.2<-data.frame(cbind(mean(dF.1$Biomass,na.rm=T),sd(dF.1$Biomass,na.rm=T),mean(dF.1$Canopy.gap.dry,na.rm=T),sd(dF.1$Canopy.gap.dry,na.rm=T),mean(dF.1$Cocoa.density,na.rm=T),sd(dF.1$Cocoa.density,na.rm=T),mean(dF.1$distance.cont,na.rm=T),sd(dF.1$distance.cont,na.rm=T),mean(dF.1$No.applications.yr,na.rm=T),sd(dF.1$No.applications.yr,na.rm=T),mean(dF.1$PropCPB,na.rm=T),sd(dF.1$PropCPB,na.rm=T)),stringsAsFactors = F)
+colnames(dF.2)<-c(paste0(vars[1],".m"),paste0(vars[1],".sd"),paste0(vars[2],".m"),paste0(vars[2],".sd"),paste0(vars[3],".m"),paste0(vars[3],".sd"),paste0(vars[4],".m"),paste0(vars[4],".sd"),paste0(vars[5],".m"),paste0(vars[5],".sd"),paste0(vars[6],".m"),paste0(vars[6],".sd"))
 
 #standardize variables
-dF.1$plot<-as.character(dF$Plot.Number)
+dF.1$plot<-as.character(dF$plot)
 dF.1$z.Biomass<-(dF.1$Biomass-dF.2$Biomass.m)/dF.2$Biomass.sd/2
 dF.1$z.Cocoa.density<-(dF.1$Cocoa.density-dF.2$Cocoa.density.m)/dF.2$Cocoa.density.sd/2
 dF.1$z.distance.cont<-(dF.1$distance.cont-dF.2$distance.cont.m)/dF.2$distance.cont.sd/2
 dF.1$z.No.applications.yr<-(dF.1$No.applications.yr-dF.2$No.applications.yr.m)/dF.2$No.applications.yr.sd/2
-dF.1$z.soil.moist<-(dF.1$soil.moist-dF.2$soil.moist.m)/dF.2$soil.moist.sd/2
-dF.1$z.Age.of.cocoa<-(dF.1$Age.of.cocoa-dF.2$Age.of.cocoa.m)/dF.2$Age.of.cocoa.sd/2
+dF.1$z.Canopy.gap.dry<-(dF.1$Canopy.gap.dry-dF.2$Canopy.gap.dry.m)/dF.2$Canopy.gap.dry.sd/2
+dF.1$z.PropCPB<-(dF.1$PropCPB-dF.2$PropCPB.m)/dF.2$PropCPB.sd/2
 
-dF.1$z.pH<-(dF.1$pH-dF.2$pH.m)/dF.2$pH.sd/2
-
-dF.1$yield.tree<-dF$HeavyCrop.med
-dF.1$yield.ha<-dF$HeavyCrop.med.ha
+dF.1$yield.tree<-dF$HeavyCrop
+dF.1$yield.ha<-dF$HeavyCrop*dF$Cocoa.density
 
 #calculate max per tree yield
 max.yield<-max(dF.1$yield.tree)
@@ -170,80 +153,85 @@ dF.1$yield.gap.ha<-dF.1$yield.gap*dF.1$Cocoa.density
 #calculate yield potential per factor based on farm's 2014/15 measures, using AICcmodavg
 #for delta 6
 dF.1$yield.mod<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*dF.1$z.No.applications.yr+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*dF.1$z.soil.moist+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*dF.1$z.Canopy.gap.dry
+
+r.adj<-summary(lm(yield.mod~yield.tree,data=dF.1))$adj.r.squared
+ggplot(dF.1,aes(yield.tree,yield.mod)) + geom_point() + xlim(0,1.6) + ylim(0,1.6) +theme_classic()+
+  geom_abline(intercept = 0,slope=1,linetype="dashed") + geom_text(aes(1.0,0.25,label=paste0("R2 = ",signif(r.adj,2))))
 
 #calculate yield potential per factor based on farm's 2014/15 measures, without Intercept?
 #calculate biomass yield contribution
 dF.1$y.biomass<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa + tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.biomass.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.biomass.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.Canopy.gap.dry)
+
+g1<-ggplot(dF.1,aes(Biomass,y.biomass))+geom_point()+geom_errorbar(aes(x=Biomass,ymin=y.biomass.lwr,ymax=y.biomass.upr),width=0.1)+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Distance to Biomass [m]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()
 
 #calculate cocoa density yield contribution
 dF.1$y.cdensity<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.cdensity.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.cdensity.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.Canopy.gap.dry)
+
+g2<-ggplot(dF.1,aes(Cocoa.density,y.cdensity))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Cocoa Density [ha-1]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=Cocoa.density,ymin=y.cdensity.lwr,ymax=y.cdensity.upr),width=0.1)
 
 #calculate distance from forest yield contribution
 dF.1$y.fdist<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.fdist.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.fdist.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.Canopy.gap.dry)
+
+g3<-ggplot(dF.1,aes(distance.cont,y.fdist))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Distance from Forest [m]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=distance.cont,ymin=y.fdist.lwr,ymax=y.fdist.upr),width=0.1)
 
 #calculate fertilizer yield contribution
 dF.1$y.fert<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*dF.1$z.No.applications.yr+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.fert.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*dF.1$z.No.applications.yr+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*mean(dF.1$z.Canopy.gap.dry)
 dF.1$y.fert.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*dF.1$z.No.applications.yr+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.Canopy.gap.dry)
 
-#calculate soil moisture yield contribution
-dF.1$y.smoist<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*dF.1$z.soil.moist+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
-dF.1$y.smoist.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*dF.1$z.soil.moist+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
-dF.1$y.smoist.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*dF.1$z.soil.moist+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa
+g4<-ggplot(dF.1,aes(No.applications.yr,y.fert))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Fertiliser Application [No/yr]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=No.applications.yr,ymin=y.fert.lwr,ymax=y.fert.upr),width=0.1)
 
-#calculate age of cocoa yield contribution
-dF.1$y.age<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Estimate"]*mean(dF.1$z.pH)
-dF.1$y.age.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Lower.CL"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Lower.CL"]*mean(dF.1$z.pH)
-dF.1$y.age.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Upper.CL"]*dF.1$z.Age.of.cocoa+tmp[tmp$Comparison=="Soil pH","Upper.CL"]*mean(dF.1$z.pH)+tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.GapDry)
+#calculate canopy gap yield contribution
+dF.1$y.cgap<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*dF.1$z.Canopy.gap.dry
+dF.1$y.cgap.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*dF.1$z.Canopy.gap.dry
+dF.1$y.cgap.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*mean(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*dF.1$z.Canopy.gap.dry
 
-#calculate pH cocoa yield contribution
-dF.1$y.pH<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Estimate"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Estimate"]*mean(dF.1$z.Age.of.cocoa)+tmp[tmp$Comparison=="Soil pH","Estimate"]*dF.1$z.pH
-dF.1$y.pH.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Lower.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Lower.CL"]*mean(dF.1$z.Age.of.cocoa)+tmp[tmp$Comparison=="Soil pH","Lower.CL"]*dF.1$z.pH
-dF.1$y.pH.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Soil\nMoisture","Upper.CL"]*mean(dF.1$z.soil.moist)+tmp[tmp$Comparison=="Age of Cocoa","Upper.CL"]*mean(dF.1$z.Age.of.cocoa)+tmp[tmp$Comparison=="Soil pH","Upper.CL"]*dF.1$z.pH
+g5<-ggplot(dF.1,aes(Canopy.gap.dry,y.cgap))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Canopy Gap [%]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=Canopy.gap.dry,ymin=y.cgap.lwr,ymax=y.cgap.upr),width=0.1)
+
+#calculate capsid yield contribution
+dF.1$y.cpb<-tmp[tmp$Comparison=="(Intercept)","Estimate"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*mean(dF.1$z.Canopy.gap.dry)
+dF.1$y.cpb.lwr<-tmp[tmp$Comparison=="(Intercept)","Lower.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Lower.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Lower.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Lower.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Lower.CL"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Lower.CL"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Lower.CL"]*mean(dF.1$z.Canopy.gap.dry)
+dF.1$y.cpb.upr<-tmp[tmp$Comparison=="(Intercept)","Upper.CL"]*0+tmp[tmp$Comparison=="Distance to\nBiomass","Upper.CL"]*mean(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Upper.CL"]*mean(dF.1$z.Cocoa.density)+tmp[tmp$Comparison=="Distance\nFrom Forest","Upper.CL"]*mean(dF.1$z.distance.cont)+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Upper.CL"]*mean(dF.1$z.No.applications.yr)+
+  tmp[tmp$Comparison=="Capsid Incidence","Upper.CL"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Upper.CL"]*mean(dF.1$z.Canopy.gap.dry)
+
+g6<-ggplot(dF.1,aes(PropCPB,y.cpb))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
+  xlab("Capsid Incidence [prop pods]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=PropCPB,ymin=y.cpb.lwr,ymax=y.cpb.upr))
+
+g7<-grid.arrange(g1,g2,g3,g4,g5,g6,ncol=2)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig_modelparameters.pdf",g7,height=9,width=7)
 
 write.csv(dF.1,paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
 
 dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
-
-#plot contribution of distance from forest to yield
-ggplot(dF.1,aes(distance.cont,y.fdist))+geom_point()+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
-  xlab("Distance from Forest [m]")+ylab("Contribution to Yield [kg/tree]")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black'))
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig2_distancecontribtoyield.pdf",height=6,width=6)
 
 #check components to modeled yield
 dF.1$check<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+dF.1$y.biomass+dF.1$y.cdensity+dF.1$y.fdist+dF.1$y.fert+dF.1$y.smoist+dF.1$y.age+dF.1$y.pH
