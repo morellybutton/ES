@@ -238,7 +238,7 @@ write.csv(dF.1,paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,
 dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
 
 #check components to modeled yield
-dF.1$check<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+dF.1$y.biomass+dF.1$y.cdensity+dF.1$y.fdist+dF.1$y.fert+dF.1$y.y.cgap+dF.1$y.cpb
+dF.1$check<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+dF.1$y.biomass+dF.1$y.cdensity+dF.1$y.fdist+dF.1$y.fert+dF.1$y.cgap+dF.1$y.cpb
 
 #calculate potential yield increase by factor, create new dataframe
 dF.3<-data.frame(cbind(as.character(dF.1$plot),dF.1$yield.tree,dF.1$yield.ha),stringsAsFactors = F)
@@ -268,32 +268,44 @@ dF.3$y.cgap.1<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+tmp[tmp$Comparison=
 dF.3$y.cgap.2<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*dF.1$z.No.applications.yr+
   tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*min(dF.1$z.Canopy.gap.dry)-dF.1$yield.mod 
 
-#calculate yield increasing potential by maxing out influence of biomass, canopy gap, fertiliser
-dF.3$yield.pot<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*min(dF.1$z.Biomass)+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*max(dF.1$z.No.applications.yr)+
-  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*dF.1$z.PropCPB+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*max(dF.1$z.Canopy.gap.dry)-dF.1$yield.mod 
+#calculate yield increasing potential by summing
+#minimizing capsid
+dF.3$yield.pot.cpb<-tmp[tmp$Comparison=="(Intercept)","Estimate"]+tmp[tmp$Comparison=="Distance to\nBiomass","Estimate"]*dF.1$z.Biomass+tmp[tmp$Comparison=="Cocoa\nDensity","Estimate"]*dF.1$z.Cocoa.density+tmp[tmp$Comparison=="Distance\nFrom Forest","Estimate"]*dF.1$z.distance.cont+tmp[tmp$Comparison=="Avg Fertiliser\nApplications [yr-1]","Estimate"]*dF.1$z.No.applications.yr+
+  tmp[tmp$Comparison=="Capsid Incidence","Estimate"]*min(dF.1$z.PropCPB)+tmp[tmp$Comparison=="Canopy Gap","Estimate"]*dF.1$z.Canopy.gap.dry-dF.1$yield.mod 
 
 #calculate percent increase in per tree yield
-dF.3$y.pot.pct<-dF.3$yield.pot/as.numeric(dF.3$o.yield.tree)*100
+#biomass
+dF.3$y.pot.pct.bmass<-dF.3$y.biomass.2/as.numeric(dF.3$o.yield.tree)*100
+#fertiliser
+dF.3$y.pot.pct.fert<-dF.3$y.fert.1/as.numeric(dF.3$o.yield.tree)*100
+#canopy gap
+dF.3$y.pot.pct.cgap<-dF.3$y.cgap.1/as.numeric(dF.3$o.yield.tree)*100
+#capsid
+dF.3$y.pot.pct.cpb<-dF.3$yield.pot.cpb/as.numeric(dF.3$o.yield.tree)*100
+
+dF.3 <- dF.3 %>% group_by(plot) %>% mutate(yield.pot=sum(y.biomass.2,y.fert.1,y.cgap.1,yield.pot.cpb))
 
 #calculate absolute yield increase per factor
-dF.4<-data.frame(dF.3$plot,stringsAsFactors = F)
-dF.4[,2:4]<-cbind(dF.3$y.biomass.2,dF.3$y.fert.1,dF.3$y.cgap.1)
-colnames(dF.4)<-c("plot","Biomass","Fert","Canopy Gap")
+dF.4 <- dF.3 %>% select(plot,y.biomass.2,y.fert.1,y.cgap.1,yield.pot.cpb)
+colnames(dF.4)<-c("plot","Biomass","Fert","Canopy Gap","Capsid")
 
-dF.4<-dF.4 %>% gather(key="variable",value="value",-plot)
+dF.4<- dF.4 %>% gather(key="variable",value="value",-plot)
 
-dF.4$variable<-factor(dF.4$variable,labels=c("Distance from Biomass","Fertiliser","Canopy Gap"))
-dF.4$plot<-ordered(dF.4$plot,levels=paste(as.character(dF.3[order(dF.3$yield.pot,decreasing=T),"plot"],sep=",")))
+dF.4$variable<-factor(dF.4$variable,labels=c("Distance from Biomass","Fertiliser","Canopy Gap","Capsid Incidence"))
+#dF.4$plot<-ordered(dF.4$plot,levels=dF.3[order(dF.3$yield.pot,decreasing=T),"plot"])
 
 write.csv(dF.4,paste0(getwd(),"/Analysis/ES/Modelled.yield.per.tree.per.farm.contribution",season,".med.csv"))
 
 #calculate the absolute change in factor for each farm
-dF.3$d.biomass<-dF.1$Biomass-min(dF.1$Biomass)
+dF.3$d.biomass<-min(dF.1$Biomass)-dF.1$Biomass
 dF.3$d.fert<-max(dF.1$No.applications.yr)-dF.1$No.applications.yr
 dF.3$d.cgap<-max(dF.1$Canopy.gap.dry)-dF.1$Canopy.gap.dry
+dF.3$d.cpb<-min(dF.1$PropCPB)-dF.1$PropCPB
 
-#calculate increase of yield per ha
-dF.3$check<-rowSums(cbind(dF.3$y.biomass.2,dF.3$y.fert.1,dF.3$y.cgap.1))
+#calculate increase of yield per ha, per paramater
+dF.3<-left_join(dF.3,dF.1 %>% select(plot,Cocoa.density),by="plot")
+dF.3 <- dF.3 %>% group_by(plot) %>% mutate(y.pot.bmass.ha=y.biomass.2*Cocoa.density,y.pot.fert.ha=y.fert.1*Cocoa.density,
+                                           y.pot.cgap.ha=y.cgap.1*Cocoa.density,y.pot.cpb.ha=yield.pot.cpb*Cocoa.density)
 dF.3$y.pot.ha<-dF.3$yield.pot*dF.1$Cocoa.density
 
 #load key household variables
@@ -307,7 +319,7 @@ dF.3$rent.ha<-hhold.vars[match(dF.3$plot,hhold.vars$Plot),"Rent.cedis"]/dF.3$lan
 
 #load input and labour costs
 hhold.costs<-read.csv(paste0(getwd(),"/HouseholdData/Labour.Input.Costs.csv"))
-dF.3[,(ncol(dF.3)+1):(ncol(dF.3)+7)]<-hhold.costs[match(dF.3$plot,hhold.costs$PLOTCODE),2:8]
-#dF.3$inputs<-hhold.costs[match(dF.3$plot,hhold.costs$PLOTCODE),"Input.ha"]
+hhold.costs <- hhold.costs %>% rename(plot=PLOTCODE)
+dF.3 <- left_join(dF.3,hhold.costs,by="plot")
 
 write.csv(dF.3,paste0(getwd(),"/Analysis/ES/Income.calculation.inputs.",season,".csv"))

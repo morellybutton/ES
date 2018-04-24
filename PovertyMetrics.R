@@ -1,8 +1,5 @@
-library(plyr)
-library(ggplot2)
-library(reshape)
+library(tidyverse)
 library(gridExtra)
-
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 year="2014"
@@ -11,16 +8,19 @@ season="1415"
 #source("/Volumes/ELDS/ECOLIMITS/R_codes/HelperFunctions/summarySE.R")
 
 dF.pov<-data.frame(read.csv(paste0(getwd(),"/HouseholdData/PovertyMeasures1.csv")),stringsAsFactors = F)
+dF.pov <- dF.pov %>% rename(plot=PLOTCODE)
 #dF.pov$z.Food.security<-(dF.pov$Food.security-mean(dF.pov$Food.security))/sd(dF.pov$Food.security)
-quart<-ddply(dF.pov,.(Cocoa.income.quart),summarise,income=max(Cocoa.Income,na.rm=T))
+quart<-dF.pov %>% group_by(Cocoa.income.quart) %>% summarise(income=max(Cocoa.Income,na.rm=T))
 
 dF.income<-data.frame(read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv")),stringsAsFactors = F)
 
-#assign new quartile values
-dF.income$new.quartile<-1
-dF.income[dF.income$i.Survey.income>quart[1,2],"new.quartile"]<-2
-dF.income[dF.income$i.Survey.income>quart[2,2],"new.quartile"]<-3
-dF.income[dF.income$i.Survey.income>quart[3,2],"new.quartile"]<-4
+dF.income <- left_join(dF.income,dF.pov %>% select(plot,Cocoa.Income,Cocoa.income.quart),by="plot")
+dF.income <- dF.income %>% rename(Survey.income = Cocoa.Income) %>% mutate(i.Survey.income.fert=Survey.income*i.prop.fert,
+                                                                           i.Survey.income.bmass=Survey.income*i.prop.bmass,
+                                                                           i.Survey.income.cpb=Survey.income*i.prop.cpb)
+#remove duplicates
+dF.income <- dF.income %>% distinct(plot,.keep_all=T)
+
 
 #analyze poverty measures as predictors of quartiles
 #basic necessities
@@ -84,15 +84,14 @@ exp(coef(x))
 #to create 95% confidence interval
 exp(confint.default(x))
 
-#to calculate probability of household having a child miss school at new income:
-dF.income$New.Income<-rowSums(cbind(dF.income$Survey.income,dF.income$i.Survey.income))
-
+#to calculate probability of household having a child miss school at new income (fertiliser, biomass & capsids):
+#fertiliser
 results<-list()
-for(i in 1:length(dF.income$New.Income)){
-  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$New.Income[i]),
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.fert[i]),
                        type="response", se.fit=TRUE)
   y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
-  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$New.Income[i]), se.fit=TRUE)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.fert[i]), se.fit=TRUE)
   ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
   y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
   colnames(y)<-c("prob","ci5","ci95")
@@ -108,34 +107,72 @@ for(i in 1:length(dF.income$New.Income)){
   results[[i]]<-y
 }
 
-educ<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
-educ$plot<-as.character(dF.income$plot)
-educ$Survey.income<-dF.income$Survey.income
-educ$New.income<-dF.income$New.Income
+educ.fert<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+educ.fert$plot<-as.character(dF.income$plot)
+educ.fert$Survey.income<-dF.income$Survey.income
+educ.fert$New.income<-dF.income$i.pot.net.margin.fert*dF.income$land.area
+educ.fert$parameter<-"Fertiliser"
+
+#biomass
+results<-list()
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.bmass[i]),
+                       type="response", se.fit=TRUE)
+  y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.bmass[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
+  colnames(y)<-c("prob","ci5","ci95")
+  #calculate original probability
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]),
+                       type="response", se.fit=TRUE)
+  z<-data.frame(pi.hat$fit,stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  z<-data.frame(c(z,exp(ci)/(1+exp(ci))))
+  colnames(z)<-c("orig.prob","orig.ci5","orig.ci95")
+  y<-cbind(y,z)
+  results[[i]]<-y
+}
+
+educ.bmass<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+educ.bmass$plot<-as.character(dF.income$plot)
+educ.bmass$Survey.income<-dF.income$Survey.income
+educ.bmass$New.income<-dF.income$i.Survey.income.bmass
+educ.bmass$parameter<-"Biomass"
+
+#capsids
+results<-list()
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.cpb[i]),
+                       type="response", se.fit=TRUE)
+  y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.cpb[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
+  colnames(y)<-c("prob","ci5","ci95")
+  #calculate original probability
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]),
+                       type="response", se.fit=TRUE)
+  z<-data.frame(pi.hat$fit,stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  z<-data.frame(c(z,exp(ci)/(1+exp(ci))))
+  colnames(z)<-c("orig.prob","orig.ci5","orig.ci95")
+  y<-cbind(y,z)
+  results[[i]]<-y
+}
+
+educ.cpb<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+educ.cpb$plot<-as.character(dF.income$plot)
+educ.cpb$Survey.income<-dF.income$Survey.income
+educ.cpb$New.income<-dF.income$i.Survey.income.cpb
+educ.cpb$parameter<-"Capsids"
+
+educ<-bind_rows(educ.fert,educ.bmass,educ.cpb)
 write.csv(educ,paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
 
-output<-data.frame(cbind("Education",mean(educ$orig.prob),mean(educ$prob)),stringsAsFactors = F)
-colnames(output)<-c("Measure","Original","Potential")
-
-#find mean probability before and after income shift
-g1<-ggplot(educ,aes(log(Survey.income),orig.prob))+geom_point()+geom_errorbar(width=.1, aes(ymin=orig.ci5, ymax=orig.ci95))+
-  geom_hline(yintercept=mean(educ$orig.prob),linetype="dashed",color="grey")+geom_hline(yintercept=mean(educ$prob),linetype="dashed",color="black")+
-  geom_vline(xintercept=log(mean(educ$Survey.income)),color="grey",linetype="dashed") +
-  geom_vline(xintercept = log(mean(educ$New.income)),color="black",linetype="dashed") +
-  xlab("Log of Income [cedis]")+ylab("Probability of Child Missing School")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    #,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
-ggsave(paste0(getwd(),"/Analysis/ES/Probability.education.income.increase.survey.pdf"))
-
+output<- educ %>% group_by(parameter) %>% summarise(Measure="Education",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
 
 #do for TV asset
 x<-glm(TV~Cocoa.Income,family=binomial,data=dF.pov)
@@ -148,12 +185,13 @@ exp(coef(x))
 #to create 95% confidence interval
 exp(confint.default(x))
 
+#fertiliser
 results<-list()
-for(i in 1:length(dF.income$New.Income)){
-  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$New.Income[i]),
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.fert[i]),
                        type="response", se.fit=TRUE)
   y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
-  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$New.Income[i]), se.fit=TRUE)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.fert[i]), se.fit=TRUE)
   ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
   y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
   colnames(y)<-c("prob","ci5","ci95")
@@ -169,33 +207,86 @@ for(i in 1:length(dF.income$New.Income)){
   results[[i]]<-y
 }
 
-TV<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
-TV$plot<-as.character(dF.income$plot)
-TV$Survey.income<-dF.income$Survey.income
-TV$New.income<-dF.income$New.Income
+TV.fert<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+TV.fert$plot<-as.character(dF.income$plot)
+TV.fert$Survey.income<-dF.income$Survey.income
+TV.fert$New.income<-dF.income$i.Survey.income.fert
+TV.fert$parameter<-"Fertiliser"
+
+#biomass
+results<-list()
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.bmass[i]),
+                       type="response", se.fit=TRUE)
+  y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.bmass[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
+  colnames(y)<-c("prob","ci5","ci95")
+  #calculate original probability
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]),
+                       type="response", se.fit=TRUE)
+  z<-data.frame(pi.hat$fit,stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  z<-data.frame(c(z,exp(ci)/(1+exp(ci))))
+  colnames(z)<-c("orig.prob","orig.ci5","orig.ci95")
+  y<-cbind(y,z)
+  results[[i]]<-y
+}
+
+TV.bmass<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+TV.bmass$plot<-as.character(dF.income$plot)
+TV.bmass$Survey.income<-dF.income$Survey.income
+TV.bmass$New.income<-dF.income$i.Survey.income.bmass
+TV.bmass$parameter<-"Biomass"
+
+#capsids
+results<-list()
+for(i in 1:nrow(dF.income)){
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.cpb[i]),
+                       type="response", se.fit=TRUE)
+  y<-data.frame(as.numeric(pi.hat$fit),stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$i.Survey.income.cpb[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  y<-data.frame(c(y,exp(ci)/(1+exp(ci))))
+  colnames(y)<-c("prob","ci5","ci95")
+  #calculate original probability
+  pi.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]),
+                       type="response", se.fit=TRUE)
+  z<-data.frame(pi.hat$fit,stringsAsFactors = F)
+  l.hat = predict.glm(x, data.frame(Cocoa.Income=dF.income$Survey.income[i]), se.fit=TRUE)
+  ci = c(l.hat$fit - 1.96*l.hat$se.fit, l.hat$fit + 1.96*l.hat$se.fit)
+  z<-data.frame(c(z,exp(ci)/(1+exp(ci))))
+  colnames(z)<-c("orig.prob","orig.ci5","orig.ci95")
+  y<-cbind(y,z)
+  results[[i]]<-y
+}
+
+TV.cpb<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
+TV.cpb$plot<-as.character(dF.income$plot)
+TV.cpb$Survey.income<-dF.income$Survey.income
+TV.cpb$New.income<-dF.income$i.Survey.income.cpb
+TV.cpb$parameter<-"Capsid"
+
+TV<-bind_rows(TV.fert,TV.bmass,TV.cpb)
 write.csv(TV,paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
 
-output[2,1:3]<-cbind("Asset (TV)",mean(TV$orig.prob),mean(TV$prob))
+TV<- TV %>% group_by(parameter) %>% summarise(Measure="Assets",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
 
-g2<-ggplot(TV,aes(log(Survey.income),orig.prob))+geom_point()+geom_errorbar(width=.1, aes(ymin=orig.ci5, ymax=orig.ci95))+
-  geom_vline(xintercept = log(mean(TV$New.income)),linetype="dashed")+geom_hline(yintercept = mean(TV$prob),linetype="dashed") +
-  geom_vline(xintercept = log(mean(TV$Survey.income)),linetype="dashed",color="grey")+geom_hline(yintercept = mean(TV$orig.prob),linetype="dashed",color="grey")+
-  xlab("Log of Income [cedis]")+ylab("Probability of Household Owning a TV")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    #,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
-ggsave(paste0(getwd(),"/Analysis/ES/Probability.assetTV.income.increase.survey.pdf"))
+output<-bind_rows(output,TV)
 
 #do for satisfaction and food security, using quartiles
-
+dF.income <- dF.income %>% mutate(quart.fert=1) %>% mutate(quart.fert=replace(quart.fert,i.Survey.income.fert>as.numeric(quart[3,2]),4),
+                                                                            quart.fert=replace(quart.fert,i.Survey.income.fert>as.numeric(quart[2,2])&i.Survey.income.fert<=as.numeric(quart[3,2]),3),
+                                                                            quart.fert=replace(quart.fert,i.Survey.income.fert>as.numeric(quart[1,2])&i.Survey.income.fert<=as.numeric(quart[2,2]),2)) %>%
+  mutate(quart.bmass=1) %>% mutate(quart.bmass=replace(quart.bmass,i.Survey.income.bmass>as.numeric(quart[3,2]),4),
+                                   quart.bmass=replace(quart.bmass,i.Survey.income.bmass>as.numeric(quart[2,2])&i.Survey.income.bmass<=as.numeric(quart[3,2]),3),
+                                   quart.bmass=replace(quart.bmass,i.Survey.income.bmass>as.numeric(quart[1,2])&i.Survey.income.bmass<=as.numeric(quart[2,2]),2)) %>%
+  mutate(quart.cpb=1) %>% mutate(quart.cpb=replace(quart.cpb,i.Survey.income.cpb>as.numeric(quart[3,2]),4),
+                                   quart.cpb=replace(quart.cpb,i.Survey.income.cpb>as.numeric(quart[2,2])&i.Survey.income.cpb<=as.numeric(quart[3,2]),3),
+                                   quart.cpb=replace(quart.cpb,i.Survey.income.cpb>as.numeric(quart[1,2])&i.Survey.income.cpb<=as.numeric(quart[2,2]),2))
+  
 dF.pov$Cocoa.income.quart<-factor(dF.pov$Cocoa.income.quart)
 x<-glm(Satisfaction.life.overall~Cocoa.income.quart,family=poisson,data=dF.pov)
 summary(x)
@@ -206,46 +297,28 @@ summary(x)
 #land<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
 satis<-data.frame(as.character(dF.income$plot),stringsAsFactors = F)
 colnames(satis)<-"plot"
-satis$likert<-dF.pov[match(dF.income$plot,dF.pov$PLOTCODE),"Satisfaction.life.overall"]
-satis$income.quartile<-dF.income$Survey.quart
-satis$new.quartile<-factor(dF.income$new.quartile)
+satis$likert<-dF.pov[match(dF.income$plot,dF.pov$plot),"Satisfaction.life.overall"]
+satis$income.quartile<-dF.pov[match(dF.income$plot,dF.pov$plot),"Cocoa.income.quart"]
+satis$quart.fert<-factor(dF.income$quart.fert)
+satis$quart.bmass<-factor(dF.income$quart.bmass)
+satis$quart.cpb<-factor(dF.income$quart.cpb)
 
-mx<-ddply(dF.pov,.(Cocoa.income.quart),summarise,satisfaction=mean(Satisfaction.life.overall,na.rm=T),satisfaction.se=sd(Satisfaction.life.overall,na.rm=T)/length(Cocoa.income.quart))
+mx <- dF.pov %>% group_by(Cocoa.income.quart) %>% summarise(satisfaction=mean(Satisfaction.life.overall,na.rm=T),satisfaction.se=sd(Satisfaction.life.overall,na.rm=T)/length(Cocoa.income.quart))
 
-satis$new.likert<-predict.glm(x, data.frame(Cocoa.income.quart=satis$new.quartile),
-            type="response", se.fit=TRUE)$fit
+satis <- satis %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
+                          Biomass=predict.glm(x, data.frame(Cocoa.income.quart=quart.bmass),type="response", se.fit=TRUE)$fit,
+                                                   Capsid=predict.glm(x, data.frame(Cocoa.income.quart=quart.cpb),type="response", se.fit=TRUE)$fit)
 
-output[3,1:3]<-cbind("Satisfaction",mean(satis$likert),mean(satis$new.likert))
+#sat <- satis %>% summarise(Measure="Satisfaction",Original=mean(likert,na.rm=T))
+satis <- satis %>% select(plot,likert,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="new.likert",c(-plot,-likert)) %>%
+  group_by(parameter) %>% summarise(Measure="Satisfaction",Original=mean(likert,na.rm=T),Potential=mean(new.likert,na.rm=T))
 
-g4<-ggplot(mx,aes(Cocoa.income.quart,satisfaction))+geom_point(color="black")+geom_errorbar(aes(ymin=satisfaction-satisfaction.se,ymax=satisfaction+satisfaction.se),width=0.1)+
-  ylim(1,3)+geom_hline(yintercept = mean(satis$likert),linetype="dashed",color="grey")+
-  geom_hline(yintercept = mean(satis$new.likert),linetype="dashed")+
-  xlab("Cocoa Income Quartiles")+ylab("Reported Satisfaction [0-4]")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    #,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
-ggsave(paste0(getwd(),"/Analysis/ES/Satisfaction.vs.incomequartile.pdf"))
-
-#write.csv(land,paste0(getwd(),"/Analysis/ES/Landarea.probabilities.wincome.csv"))
+output <- bind_rows(output,satis)
 
 #do again for food security, and income quartile for plot farmers
 x<-glm(Food.amount~Cocoa.income.quart,family=binomial,data=dF.pov)
 summary(x)
 
-#dF.income$total.land<-dF.pov[match(dF.income$plot,dF.pov$PLOTCODE),"Land.area.ha"]
-#dF.income$Food.security<-dF.pov[match(dF.income$plot,dF.pov$PLOTCODE),"Food.security"]
-#dF.income$Gender<-dF.pov[match(dF.income$plot,dF.pov$PLOTCODE),"Gender"]
-
-#x<-glm(Food.security~Survey.income+total.land,family=poisson,data=dF.income)
-#summary(x)
 
 #compute how not having an adequate amount of food decreases with quartile
 beta=exp(coef(x))
@@ -259,39 +332,21 @@ exp(confint.default(x))
 #food<-data.frame(do.call(rbind.data.frame,results),stringsAsFactors = F)
 food<-data.frame(as.character(dF.income$plot),stringsAsFactors = F)
 colnames(food)<-"plot"
-food$income.quartile<-dF.income$Survey.quart
-food$new.quartile<-factor(dF.income$new.quartile)
-food$amount<-dF.pov[match(dF.income$plot,dF.pov$PLOTCODE),"Food.amount"]
+food$income.quartile<-dF.income$Cocoa.income.quart
+food$quart.fert<-factor(dF.income$quart.fert)
+food$quart.bmass<-factor(dF.income$quart.bmass)
+food$quart.cpb<-factor(dF.income$quart.cpb)
+food$amount<-dF.pov[match(dF.income$plot,dF.pov$plot),"Food.amount"]
 
-mx<-ddply(dF.pov,.(Cocoa.income.quart),summarise,food=mean(Food.amount,na.rm=T),se=sd(Food.amount,na.rm=T)/length(Cocoa.income.quart))
 
 #food.2<-summarySE(dF.pov, measurevar="Food.security", groupvars=c("Cocoa.income.quart"))
-food$new.amount<-predict.glm(x, data.frame(Cocoa.income.quart=food$new.quartile),
-            type="response", se.fit=TRUE)$fit
+food <- food %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
+                          Biomass=predict.glm(x, data.frame(Cocoa.income.quart=quart.bmass),type="response", se.fit=TRUE)$fit,
+                          Capsid=predict.glm(x, data.frame(Cocoa.income.quart=quart.cpb),type="response", se.fit=TRUE)$fit)
 
-output[4,1:3]<-cbind("Food Amount",mean(food$amount),mean(food$new.amount))
+food <- food %>% select(plot,amount,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="prob",c(-plot,-amount)) %>%
+  group_by(parameter) %>% summarise(Measure="Food Security",Original=mean(amount,na.rm=T),Potential=mean(prob,na.rm=T))
 
-g3<-ggplot(mx,aes(Cocoa.income.quart,food))+geom_point()+geom_errorbar(aes(ymin=food-se,ymax=food+se),width=0.1)+
-  geom_hline(yintercept = mean(food$amount),linetype="dashed",color="grey")+
-  geom_hline(yintercept = mean(food$new.amount),linetype="dashed")+
-  xlab("Cocoa Income Quartiles")+ylab("Probability of Having Adequate Amount of Food")+theme(
-    plot.background = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_blank()
-    ,panel.grid.minor = element_blank()
-    ,panel.border = element_blank()
-    ,axis.line.x = element_line(color = 'black')
-    ,axis.line.y = element_line(color = 'black')
-    #,axis.text.x=element_blank()
-    #,axis.text.x=element_text(angle = 45,hjust=1)
-    ,legend.title=element_blank()
-    ,legend.position="top")
-ggsave(paste0(getwd(),"/Analysis/ES/Income.vs.food.security.survey.pdf"))
-
-g5<-grid.arrange(g1,g2,g3,g4,ncol=2)
-ggsave(paste0(getwd(),"/Analysis/ES/Povertymeasures.vs.income.figures.pdf"),g5,width=10,height=10)
-
-output$Original<-as.numeric(output$Original)
-output$Potential<-as.numeric(output$Potential)
+output=bind_rows(output,food)
 
 write.csv(output,paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
