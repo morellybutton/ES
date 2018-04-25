@@ -291,7 +291,7 @@ colnames(dF.4)<-c("plot","Biomass","Fert","Canopy Gap","Capsid")
 
 dF.4<- dF.4 %>% gather(key="variable",value="value",-plot)
 
-dF.4$variable<-factor(dF.4$variable,labels=c("Distance from Biomass","Fertiliser","Canopy Gap","Capsid Incidence"))
+dF.4$variable<-factor(dF.4$variable,levels=c("Biomass","Fert","Canopy Gap","Capsid"),labels=c("Distance from Biomass","Fertiliser","Canopy Gap","Capsid Incidence"))
 #dF.4$plot<-ordered(dF.4$plot,levels=dF.3[order(dF.3$yield.pot,decreasing=T),"plot"])
 
 write.csv(dF.4,paste0(getwd(),"/Analysis/ES/Modelled.yield.per.tree.per.farm.contribution",season,".med.csv"))

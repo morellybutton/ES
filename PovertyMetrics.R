@@ -172,7 +172,11 @@ educ.cpb$parameter<-"Capsids"
 educ<-bind_rows(educ.fert,educ.bmass,educ.cpb)
 write.csv(educ,paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
 
-output<- educ %>% group_by(parameter) %>% summarise(Measure="Education",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
+educ<-read_csv(paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
+educ <- left_join(educ,dF.income %>% select(plot,Cocoa.income.quart),by="plot")
+#group top 2 quartiles and bottom two
+educ <- educ %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,Cocoa.income.quart<3,"bottom"))
+output<- educ %>% group_by(parameter,quartile) %>% summarise(Measure="Education",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
 
 #do for TV asset
 x<-glm(TV~Cocoa.Income,family=binomial,data=dF.pov)
@@ -272,7 +276,12 @@ TV.cpb$parameter<-"Capsid"
 TV<-bind_rows(TV.fert,TV.bmass,TV.cpb)
 write.csv(TV,paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
 
-TV<- TV %>% group_by(parameter) %>% summarise(Measure="Assets",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
+TV<-read_csv(paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
+TV <- left_join(TV,dF.income %>% select(plot,Cocoa.income.quart),by="plot")
+#group top 2 quartiles and bottom two
+TV <- TV %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,Cocoa.income.quart<3,"bottom"))
+
+TV<- TV %>% group_by(parameter,quartile) %>% summarise(Measure="Assets",Original=mean(orig.prob,na.rm=T),Potential=mean(prob,na.rm=T))
 
 output<-bind_rows(output,TV)
 
@@ -303,15 +312,16 @@ satis$quart.fert<-factor(dF.income$quart.fert)
 satis$quart.bmass<-factor(dF.income$quart.bmass)
 satis$quart.cpb<-factor(dF.income$quart.cpb)
 
-mx <- dF.pov %>% group_by(Cocoa.income.quart) %>% summarise(satisfaction=mean(Satisfaction.life.overall,na.rm=T),satisfaction.se=sd(Satisfaction.life.overall,na.rm=T)/length(Cocoa.income.quart))
+#mx <- dF.pov %>% group_by(Cocoa.income.quart) %>% summarise(satisfaction=mean(Satisfaction.life.overall,na.rm=T),satisfaction.se=sd(Satisfaction.life.overall,na.rm=T)/length(Cocoa.income.quart))
 
-satis <- satis %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
+satis <- satis %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,as.numeric(income.quartile)<3,"bottom")) %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
                           Biomass=predict.glm(x, data.frame(Cocoa.income.quart=quart.bmass),type="response", se.fit=TRUE)$fit,
                                                    Capsid=predict.glm(x, data.frame(Cocoa.income.quart=quart.cpb),type="response", se.fit=TRUE)$fit)
+  
 
 #sat <- satis %>% summarise(Measure="Satisfaction",Original=mean(likert,na.rm=T))
-satis <- satis %>% select(plot,likert,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="new.likert",c(-plot,-likert)) %>%
-  group_by(parameter) %>% summarise(Measure="Satisfaction",Original=mean(likert,na.rm=T),Potential=mean(new.likert,na.rm=T))
+satis <- satis %>% select(plot,quartile,likert,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="new.likert",c(-plot,-likert,-quartile)) %>%
+  group_by(parameter,quartile) %>% summarise(Measure="Satisfaction",Original=mean(likert,na.rm=T),Potential=mean(new.likert,na.rm=T))
 
 output <- bind_rows(output,satis)
 
@@ -340,12 +350,12 @@ food$amount<-dF.pov[match(dF.income$plot,dF.pov$plot),"Food.amount"]
 
 
 #food.2<-summarySE(dF.pov, measurevar="Food.security", groupvars=c("Cocoa.income.quart"))
-food <- food %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
+food <- food %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,as.numeric(income.quartile)<3,"bottom")) %>% mutate(Fertiliser=predict.glm(x, data.frame(Cocoa.income.quart=quart.fert),type="response", se.fit=TRUE)$fit,
                           Biomass=predict.glm(x, data.frame(Cocoa.income.quart=quart.bmass),type="response", se.fit=TRUE)$fit,
                           Capsid=predict.glm(x, data.frame(Cocoa.income.quart=quart.cpb),type="response", se.fit=TRUE)$fit)
 
-food <- food %>% select(plot,amount,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="prob",c(-plot,-amount)) %>%
-  group_by(parameter) %>% summarise(Measure="Food Security",Original=mean(amount,na.rm=T),Potential=mean(prob,na.rm=T))
+food <- food %>% select(plot,quartile,amount,Fertiliser,Biomass,Capsid) %>% gather(key="parameter",value="prob",c(-plot,-amount,-quartile)) %>%
+  group_by(parameter,quartile) %>% summarise(Measure="Food Security",Original=mean(amount,na.rm=T),Potential=mean(prob,na.rm=T))
 
 output=bind_rows(output,food)
 
