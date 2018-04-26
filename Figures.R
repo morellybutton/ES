@@ -89,7 +89,7 @@ dF.yield$parameter<-factor(dF.yield$parameter,levels=c("orig.total","potential.y
                                                        "potential.yield.cgap","potential.yield.cpb"), labels=c("Original","Total Potential","Distance from Biomass\nPotential",
                                                                                                                "Fertiliser Application\nPotential", "Canopy Gap\nPotential", "Capsid Management\nPotential"))
 ggplot(dF.yield %>% filter(parameter!="Original"), aes(fct_reorder(parameter,yield),yield.prop)) + geom_point(size=2.0) + theme_classic() + theme(axis.text.x=element_text(angle = 45,hjust=1),text = element_text(size=16))+
-  xlab("Model Parameter") + ylab("Relative Increase in Yield") + ylim(0,4) + geom_errorbar(aes(ymin=prop.lwr,ymax=prop.upr),width=0.03,size=1.0)+ coord_fixed(ratio = 3)
+  xlab("Model Parameter") + ylab("Relative Increase in Yield") + ylim(0,4) + geom_errorbar(aes(ymin=prop.lwr,ymax=prop.upr),width=0.03,size=1.0)+ coord_fixed(ratio = 1)
 ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure2_relativeincreaseinyields.pdf"))
 
 #load inputs for income calculations
