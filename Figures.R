@@ -1,32 +1,12 @@
 #Code producing final figures for ES Cocoa paper
 
-library(tidverse)
+library(tidyverse)
 library(gridExtra)
 library(ggpubr)
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 year="2014"
 season="1415"
-
-#calcluation of cocoa income per farm (season 2014-15)
-
-#comparison of poverty measures and cocoa income
-dF<-data.frame(read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv")),stringsAsFactors = F)
-dF.pov<-data.frame(read.csv(paste0(getwd(),"/HouseholdData/PovertyMeasures.csv")),stringsAsFactors = F)
-
-dF[,(ncol(dF)+1):(ncol(dF)+ncol(dF.pov)-2)]<-dF.pov[match(dF$plot,dF.pov$PLOTCODE),3:ncol(dF.pov)]
-dF[is.na(dF)]<-0
-
-dF$S.income.ha<-dF$Cocoa.Income/dF$Land.area.ha
-
-lm_eqn <- function(df){
-  m <- lm(y ~ x, df)
-  eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
-                   list(a = format(coef(m)[1], digits = 3), 
-                        b = format(coef(m)[2], digits = 3), 
-                        r2 = format(summary(m)$r.squared, digits = 3)))
-  as.character(as.expression(eq))                 
-}
 
 #cocoa yield model
 tmp<-read.csv(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,"_delta6.median.csv"))
@@ -49,7 +29,7 @@ dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,
 #plot to compare measured vs modelled yield
 r.adj<-summary(lm(yield.mod~yield.tree,data=dF.1))$adj.r.squared
 ggplot(dF.1,aes(yield.tree,yield.mod))+geom_point()+geom_abline(slope=1,intercept=0)+xlab("Measured Yield [kg tree-1]")+ylab("Modelled Yield [kg tree-1]")+
-  ylim(0,2.2)+xlim(0,2.2)+theme_classic()+geom_text(aes(label = paste("R^2: ",signif(r.adj,2),sep="")),parse=T,x=0.25,y=1.5)
+  ylim(0,2.2)+xlim(0,2.2)+theme_classic()+geom_text(aes(label = paste("R^2: ",signif(r.adj,2),sep="")),parse=T,x=0.25,y=1.5)+geom_errorbar(aes(ymin=yield.mod.lwr,ymax=yield.mod.upr))
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig1_Comparisonofmodelledyield.pdf",height=6,width=6)
 
 g1<-ggplot(dF.1,aes(Biomass,y.biomass))+geom_point()+geom_errorbar(aes(x=Biomass,ymin=y.biomass.lwr,ymax=y.biomass.upr),width=0.1)+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
@@ -72,11 +52,45 @@ ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/S
 dF.4<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.per.tree.per.farm.contribution",season,".med.csv"))
 dF.2 <- read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))
 
-dF.4 <- left_join(dF.4,dF.2 %>% select(plot,yield.pot),by="plot")
+dF.4 <- left_join(dF.4 %>% filter(variable!="Canopy Gap"),dF.2 %>% select(plot,yield.pot),by="plot")
 
 ggplot(dF.4,aes(fct_reorder(plot,yield.pot,.desc=T),value,fill=variable))+geom_bar(stat="identity")+ylab("Yield Increase Potential [kg tree-1]")+
-  xlab("Farm")+theme_classic()+theme(axis.text.x=element_text(angle = 45,hjust=1),legend.title=element_blank(),legend.position="top")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_blank(),legend.title=element_blank(),legend.position="top")
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/SuppFig3_YieldIncreasePotential.pdf")
+
+#calculate changes in yield under different parameter options
+dF <- read_csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))
+
+dF.yield <- dF %>% select(plot,o.yield.ha,land.area,y.pot.ha,y.pot.fert.ha,y.pot.fert.ha.lwr,y.pot.fert.ha.upr,y.pot.bmass.ha,y.pot.bmass.ha.lwr,y.pot.bmass.ha.upr,
+                          y.pot.cpb.ha,y.pot.cpb.ha.lwr,y.pot.cpb.ha.upr) %>%
+  mutate(orig.yield=o.yield.ha*land.area,pot.yield.total=y.pot.ha*land.area,pot.yield.bmass=y.pot.bmass.ha*land.area,pot.yield.bmass.max=y.pot.bmass.ha.upr*land.area,
+         pot.yield.bmass.min=y.pot.bmass.ha.lwr*land.area, pot.yield.fert=y.pot.fert.ha*land.area,pot.yield.fert.min=y.pot.fert.ha.lwr*land.area,pot.yield.fert.max=y.pot.fert.ha.upr*land.area,
+         pot.yield.cpb=y.pot.cpb.ha*land.area,pot.yield.cpb.min=y.pot.cpb.ha.lwr*land.area,pot.yield.cpb.max=y.pot.cpb.ha.upr*land.area) %>% group_by(plot) %>%
+  mutate(potential.yield.max=sum(pot.yield.fert.max,pot.yield.bmass.max,pot.yield.cpb.min),potential.yield.min=sum(pot.yield.fert.min,pot.yield.bmass.min,pot.yield.cpb.max)) %>%
+  ungroup() %>%
+  summarise(orig.total=sum(orig.yield)/1000,potential.yield=sum(orig.yield,pot.yield.total)/1000,potential.yield.max=sum(orig.yield,potential.yield.max)/1000,potential.yield.min=sum(orig.yield,potential.yield.min)/1000,
+            potential.yield.biomass=sum(orig.yield,pot.yield.bmass)/1000,potential.yield.biomass.max=sum(orig.yield,pot.yield.bmass.max)/1000,potential.yield.biomass.min=sum(orig.yield,pot.yield.bmass.min)/1000,
+            potential.yield.fert=sum(orig.yield,pot.yield.fert)/1000,potential.yield.fert.max=sum(orig.yield,pot.yield.fert.max)/1000,potential.yield.fert.min=sum(orig.yield,pot.yield.fert.min)/1000,
+            potential.yield.cpb=sum(orig.yield,pot.yield.cpb)/1000,potential.yield.cpb.max=sum(orig.yield,pot.yield.cpb.max)/1000,potential.yield.cpb.min=sum(orig.yield,pot.yield.cpb.min)/1000) 
+upr.yield<-dF.yield[,grep("max",colnames(dF.yield))]
+lwr.yield<-dF.yield[,grep("min",colnames(dF.yield))]
+upr.yield<-upr.yield %>% gather(key="parameter",value="upr") %>% mutate(parameter=gsub(".max","",parameter))
+lwr.yield<-lwr.yield %>% gather(key="parameter",value="lwr") %>% mutate(parameter=gsub(".min","",parameter))
+dF.yield<-dF.yield %>% gather(key="parameter",value="yield")
+
+dF.yield <- left_join(dF.yield,upr.yield,by="parameter")
+dF.yield <- left_join(dF.yield,lwr.yield,by="parameter")
+
+dF.yield <- dF.yield %>% filter(parameter=="orig.total"|!is.na(upr))
+
+dF.yield <- dF.yield %>% group_by(parameter) %>% mutate(yield.prop = yield/dF.yield$yield[dF.yield$parameter=="orig.total"],prop.upr=upr/dF.yield$yield[dF.yield$parameter=="orig.total"],prop.lwr=lwr/dF.yield$yield[dF.yield$parameter=="orig.total"])
+  
+dF.yield$parameter<-factor(dF.yield$parameter,levels=c("orig.total","potential.yield","potential.yield.biomass","potential.yield.fert",
+                                                       "potential.yield.cgap","potential.yield.cpb"), labels=c("Original","Total Potential","Distance from Biomass\nPotential",
+                                                                                                               "Fertiliser Application\nPotential", "Canopy Gap\nPotential", "Capsid Management\nPotential"))
+ggplot(dF.yield %>% filter(parameter!="Original"), aes(fct_reorder(parameter,yield),yield.prop)) + geom_point(size=2.0) + theme_classic() + theme(axis.text.x=element_text(angle = 45,hjust=1),text = element_text(size=16))+
+  xlab("Model Parameter") + ylab("Relative Increase in Yield") + ylim(0,4) + geom_errorbar(aes(ymin=prop.lwr,ymax=prop.upr),width=0.03,size=1.0)+ coord_fixed(ratio = 3)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure2_relativeincreaseinyields.pdf"))
 
 #load inputs for income calculations
 dF.3<-read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))
@@ -85,40 +99,51 @@ usd<-0.23
 
 g1<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.bmass*usd)) + geom_point() + theme_classic()+
   geom_abline(intercept = 0,slope=1,linetype="dotted") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
-  ggtitle("Distance From Biomass") + xlim(-100,1500) + ylim(-100,1500) + geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
+  ggtitle("Distance From Biomass") + xlim(-350,1100) + ylim(-350,1100) + geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
 
 g2<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.fert*usd)) + geom_point() + theme_classic()+
-  geom_abline(intercept = 0,slope=1,linetype="dashed") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
-  ggtitle("Fertiliser Application") + xlim(-100,2600) + ylim(-100,2600)+ geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
+  geom_abline(intercept = 0,slope=1,linetype="dotted") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
+  ggtitle("Fertiliser Application") + xlim(-350,1100) + ylim(-350,1100) + geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
 
-g3<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.cgap*usd)) + geom_point() + theme_classic()+
-  geom_abline(intercept = 0,slope=1,linetype="dashed") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
-  ggtitle("Canopy Gap") + xlim(-100,1400) + ylim(-100,1400)+ geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
+g3<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.cpb*usd)) + geom_point() + theme_classic()+
+  geom_abline(intercept = 0,slope=1,linetype="dotted") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
+  ggtitle("Capsid Management")+ xlim(-350,1100) + ylim(-350,1100) + geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
 
-g4<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.cpb*usd)) + geom_point() + theme_classic()+
-  geom_abline(intercept = 0,slope=1,linetype="dashed") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
-  ggtitle("Capsid Management") + xlim(-100,2600) + ylim(-100,2600)+ geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
+g4<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.all*usd)) + geom_point() + theme_classic()+
+  geom_abline(intercept = 0,slope=1,linetype="dotted") + xlab("Original Net Margin [US$/ha]") + ylab("Potential Net Margin [US$/ha]")+
+  ggtitle("All Management Options") + xlim(-350,1600) + ylim(-350,1600)+ geom_hline(yintercept=0,linetype="dashed") + geom_vline(xintercept=0,linetype="dashed")
 
 g5<-grid.arrange(g1,g3,g2,g4,ncol=2)
-ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure2_CocoaIncome_potential_increase.byparameter.pdf"),g5,height=6,width=7)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/FigureS4_CocoaIncome_potential_increase.byparameter.pdf"),g5,height=6,width=7)
 
-#need to do final arrow figures of poverty changes
+#Final Changes to Poverty Indices
 dF.2<-read.csv(paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
-dF.3 <- dF.2 %>% select(-X) %>% gather(key="variable",value="value",c(-Measure,-parameter,-quartile))
+dF.3 <- dF.2 %>% select(-X) %>% gather(key="variable",value="value",c(-Measure,-parameter,-quartile)) %>%
+  mutate(parameter=replace(parameter,parameter=="NoLoss","No LBC Loss"),parameter=replace(parameter,parameter=="All","All Options"),parameter=replace(parameter,parameter=="Capsids","Capsid"))
+
+
 g1<-ggplot(dF.3 %>% filter(Measure=="Education")) + geom_point(aes(variable,value)) + theme_classic() +
   ylab("Quartile Mean Probability") + xlab("") + ggtitle("Missing School") + ylim(0,1.0)+
   geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Fertiliser"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Fertiliser"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
-  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Capsids"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Capsid"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
-  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Capsids"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="Capsid"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="All Options"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                       x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
   
   
@@ -127,15 +152,23 @@ g2<-ggplot(dF.3 %>% filter(Measure=="Assets")) + geom_point(aes(variable,value))
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Fertiliser"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Fertiliser"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Capsid"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="Capsid"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="All Options"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                       x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Assets"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                       x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
 
 g3<-ggplot(dF.3 %>% filter(Measure=="Food Security")) + geom_point(aes(variable,value)) + theme_classic() +
@@ -143,15 +176,23 @@ g3<-ggplot(dF.3 %>% filter(Measure=="Food Security")) + geom_point(aes(variable,
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                  x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                 x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                 x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Fertiliser"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Fertiliser"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Capsid"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                 x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="Capsid"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                               x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+                                                                               x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="All Options"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
 
 g4<-ggplot(dF.3 %>% filter(Measure=="Satisfaction")) + geom_point(aes(variable,value)) + theme_classic() +
@@ -159,15 +200,23 @@ g4<-ggplot(dF.3 %>% filter(Measure=="Satisfaction")) + geom_point(aes(variable,v
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                         x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Biomass"), aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Fertiliser"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                            x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Fertiliser"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                          x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+                                                                                          x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Capsid"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="Capsid"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="All Options"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                            x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                           x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+                                                                                            x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+                                                                                           x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
 
 ggarrange(g1,g3,g2,g4, ncol=2, nrow=2, common.legend = TRUE, legend="bottom")
