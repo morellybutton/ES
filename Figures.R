@@ -3,6 +3,9 @@
 library(tidyverse)
 library(gridExtra)
 library(ggpubr)
+library(arm)
+library(car)
+library(lattice)
 
 setwd("/Volumes/ELDS/ECOLIMITS/Ghana/Kakum/")
 year="2014"
@@ -23,15 +26,43 @@ ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/F
 
 #dF<-read.csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
 
+#diagnostic plots for cocoa yield model
+year="2014"
+season="1415"
+
+dF<-read_csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
+
+(fm01<-lm(HeavyCrop~Canopy.gap.dry+Cocoa.density+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
+summary(fm01)
+fm01s<-standardize(fm01)
+summary(fm01s)
+
+#compare observed responses vs within-group fitted values
+## create data frame of residuals, fitted values, and variable
+diagnos <- data.frame(Resid = resid(fm01s, type = "pearson"), Fitted = fitted(fm01s))
+
+g1<-xyplot(Resid ~ Fitted, data = diagnos,xlab="Fitted Values",ylab="Residuals",main="Yield")
+
+#Assumption 2: Random effects are normally distributed with mean zero and covariance matrix (not depending on the group) and are independent for different groups
+#test for normality of residuals
+## overal QQ normal plot
+g2<-qqmath(~Resid, data = diagnos, distribution = qnorm,xlab="Normal Quantiles",ylab="Residuals",main="Yield", panel = function(x, ...) {
+  panel.qqmathline(x, ...)
+  panel.qqmath(x, ...)
+})
+
+g3<-grid.arrange(g1,g2,ncol=2)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig1_DiagnosticPlots.pdf",g3,height=4,width=8)
+
 #open calculated yield contribution per factor
 dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,".delta6.csv"))
 
 #plot to compare measured vs modelled yield
 r.adj<-summary(lm(yield.mod~yield.tree,data=dF.1))$adj.r.squared
-ggplot(dF.1,aes(yield.tree,yield.mod))+geom_point()+geom_abline(slope=1,intercept=0)+xlab("Measured Yield [kg tree-1]")+ylab("Modelled Yield [kg tree-1]")+
+ggplot(dF.1,aes(yield.tree,yield.mod))+geom_point()+geom_abline(slope=1,intercept=0,linetype="dashed")+xlab("Measured Yield [kg tree-1]")+ylab("Modelled Yield [kg tree-1]")+
   ylim(0,2.2)+xlim(0,2.2)+theme_classic()+geom_text(aes(label = paste("R^2: ",signif(r.adj,2),sep="")),parse=T,x=0.25,y=1.5)+geom_errorbar(aes(ymin=yield.mod.lwr,ymax=yield.mod.upr))+
   geom_text(aes(label="n = 36"),x=0.25,y=1.35) 
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig1_Comparisonofmodelledyield.pdf",height=6,width=6)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig2_Comparisonofmodelledyield.pdf",height=6,width=6)
 
 g1<-ggplot(dF.1,aes(Biomass,y.biomass))+geom_point()+geom_errorbar(aes(x=Biomass,ymin=y.biomass.lwr,ymax=y.biomass.upr),width=0.1)+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
   xlab("Distance to Biomass [m]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()
@@ -47,7 +78,7 @@ g6<-ggplot(dF.1,aes(PropCPB,y.cpb))+geom_point()+stat_smooth(method="lm")+geom_h
   xlab("Capsid Incidence [prop pods]")+ylab("Contribution to Yield [kg/tree]")+theme_classic()+geom_errorbar(aes(x=PropCPB,ymin=y.cpb.lwr,ymax=y.cpb.upr))
 
 g7<-grid.arrange(g1,g2,g3,g4,g5,g6,ncol=3)
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig2_modelparameters.pdf",g7,width=8,height=5)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig3_modelparameters.pdf",g7,width=8,height=5)
 
 #load calculated contributions by factor
 dF.4<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.per.tree.per.farm.contribution",season,".med.csv"))
@@ -56,8 +87,8 @@ dF.2 <- read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv
 dF.4 <- left_join(dF.4 %>% filter(variable!="Canopy Gap"),dF.2 %>% select(plot,yield.pot),by="plot")
 
 ggplot(dF.4,aes(fct_reorder(plot,yield.pot,.desc=T),value,fill=variable))+geom_bar(stat="identity")+ylab("Yield Increase Potential [kg tree-1]")+
-  xlab("Farm")+theme_classic()+theme(axis.text.x=element_blank(),legend.title=element_blank(),legend.position="top")
-ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/SuppFig3_YieldIncreasePotential.pdf")
+  xlab("Farm")+theme_classic()+theme(axis.text.x=element_blank(),legend.title=element_blank(),legend.position="top",text = element_text(size=16))
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/SuppFig4_YieldIncreasePotential.pdf")
 
 #calculate changes in yield under different parameter options
 dF <- read_csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))
@@ -116,6 +147,19 @@ g4<-ggplot(dF.3,aes(o.net.margin*usd,i.pot.net.margin.all*usd)) + geom_point() +
 
 g5<-grid.arrange(g1,g3,g2,g4,ncol=2)
 ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/FigureS4_CocoaIncome_potential_increase.byparameter.pdf"),g5,height=6,width=7)
+
+#Relationship between inputs and yields from survey
+i.mod<-lm(Input.ha~o.yield.ha,data=dF.3)
+input<-coefficients(i.mod)
+r.adj <- summary(i.mod)$adj.r.squared
+
+g1<-ggplot(dF.3,aes(o.yield.ha,Input.ha)) + geom_point() +stat_smooth(method="lm") + theme_classic() + theme(text = element_text(size=14)) +
+  xlab("Yield [kg/ha]") + ylab("Input costs [cedis/ha]") + geom_text(aes(100,2000,label=paste("R^2:",signif(r.adj,2),sep="")),parse=T)
+g2<-ggplot(dF.3,aes(o.yield.ha,Labour.ha)) + geom_point() +stat_smooth(method="lm") + theme_classic() + theme(text = element_text(size=14)) +
+  xlab("Yield [kg/ha]") + ylab("Labour costs [cedis/ha]")
+g3<-grid.arrange(g1,g2,ncol=2)
+ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig5_labour.input.costs.pdf",g3,height=4,width=9)
+
 
 #Final Changes to Poverty Indices
 dF.2<-read.csv(paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
