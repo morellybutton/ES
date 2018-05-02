@@ -23,6 +23,7 @@ dF.income <- dF.income %>% rename(Survey.income = Cocoa.Income) %>% mutate(i.Sur
 #remove duplicates
 dF.income <- dF.income %>% distinct(plot,.keep_all=T)
 
+write.csv(dF.income,paste0(getwd(),"/Analysis/ES/Income.calculations.",season,"whhold.csv"))
 
 #analyze poverty measures as predictors of quartiles
 #basic necessities

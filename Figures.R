@@ -15,10 +15,10 @@ tmp<-tmp[!is.na(tmp$full),]
 tmp$Comparison<-factor(tmp$Comparison,levels=tmp[order(tmp$Importance,decreasing=T),"Comparison"],labels=c("Distance to\nBiomass","Cocoa\nDensity","Avg Fertiliser\nApplications [yr-1]","Distance\nFrom Forest","Capsid Incidence","Canopy Gap","(Intercept)"))
 tmp$Comparison<-factor(tmp$Comparison,levels=tmp[order(tmp$Importance,decreasing=F),"Comparison"])
 
-g1<-ggplot(tmp[!is.na(tmp$Importance),], aes(x = Comparison, y = Estimate, ymin = Lower.CL, ymax = Upper.CL)) + geom_errorbar(width = 0.1,size=1.0) + geom_point(size=2.0)+
-  theme(text = element_text(size=16),legend.key = element_rect(colour = "white", fill = NA))+ggtitle(paste0("Influence of ES factors on Per Tree Yield"))+geom_hline(yintercept = 0,linetype="dashed")+
-  xlab("Variable [ranked by importance]")+ylab("Effect Size")+theme(panel.background=element_blank(),axis.line.x = element_line(color = 'black'),axis.line.y = element_line(color = 'black'),axis.text.x=element_text(angle = 45,hjust=1))
-g1 + coord_flip()
+g1<-ggplot(tmp[!is.na(tmp$Importance),], aes(x = Comparison, y = Estimate, ymin = Lower.CL, ymax = Upper.CL)) + geom_errorbar(width = 0.1,size=1.0) + geom_point(size=2.0)+ 
+  theme_classic() + ggtitle(paste0("Influence of ES factors on\nPer Tree Yield"))+geom_hline(yintercept = 0,linetype="dashed")+
+  xlab("Variable [ranked by importance]")+ylab("Effect Size") +theme(text = element_text(size=16),plot.title = element_text(hjust = 0.5))
+g1 + coord_flip() + geom_text(aes(label="n = 36"),x=0.75,y=-0.55) 
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure1_YieldModel.pdf")
 
 #dF<-read.csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
@@ -29,7 +29,8 @@ dF.1<-read.csv(paste0(getwd(),"/Analysis/ES/Modelled.yield.contribution",season,
 #plot to compare measured vs modelled yield
 r.adj<-summary(lm(yield.mod~yield.tree,data=dF.1))$adj.r.squared
 ggplot(dF.1,aes(yield.tree,yield.mod))+geom_point()+geom_abline(slope=1,intercept=0)+xlab("Measured Yield [kg tree-1]")+ylab("Modelled Yield [kg tree-1]")+
-  ylim(0,2.2)+xlim(0,2.2)+theme_classic()+geom_text(aes(label = paste("R^2: ",signif(r.adj,2),sep="")),parse=T,x=0.25,y=1.5)+geom_errorbar(aes(ymin=yield.mod.lwr,ymax=yield.mod.upr))
+  ylim(0,2.2)+xlim(0,2.2)+theme_classic()+geom_text(aes(label = paste("R^2: ",signif(r.adj,2),sep="")),parse=T,x=0.25,y=1.5)+geom_errorbar(aes(ymin=yield.mod.lwr,ymax=yield.mod.upr))+
+  geom_text(aes(label="n = 36"),x=0.25,y=1.35) 
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig1_Comparisonofmodelledyield.pdf",height=6,width=6)
 
 g1<-ggplot(dF.1,aes(Biomass,y.biomass))+geom_point()+geom_errorbar(aes(x=Biomass,ymin=y.biomass.lwr,ymax=y.biomass.upr),width=0.1)+stat_smooth(method="lm")+geom_hline(yintercept=0,linetype="dashed")+
@@ -140,10 +141,10 @@ g1<-ggplot(dF.3 %>% filter(Measure=="Education")) + geom_point(aes(variable,valu
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
-  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
-                                                                                        x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
-  geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                       x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  #geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+  #                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  #geom_segment(data=dF.3 %>% filter(Measure=="Education"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+  #                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
   
   
@@ -189,10 +190,10 @@ g3<-ggplot(dF.3 %>% filter(Measure=="Food Security")) + geom_point(aes(variable,
                                                                                      x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
-  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
-                                                                                     x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
-  geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                    x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  #geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+  #                                                                                   x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  #geom_segment(data=dF.3 %>% filter(Measure=="Food Security"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+  #                                                                                  x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
 
 g4<-ggplot(dF.3 %>% filter(Measure=="Satisfaction")) + geom_point(aes(variable,value)) + theme_classic() +
@@ -213,10 +214,10 @@ g4<-ggplot(dF.3 %>% filter(Measure=="Satisfaction")) + geom_point(aes(variable,v
                                                                                             x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
   geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="All Options"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
                                                                                            x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
-  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
-                                                                                            x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
-  geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
-                                                                                           x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
+  #geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"), aes(y=value[variable=="Original"&quartile=="bottom"],yend=value[variable=="Potential"&quartile=="bottom"],
+  #                                                                                          x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="dotdash",size = 1,arrow = arrow(length = unit(0.3, "cm"))) +
+  #geom_segment(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter=="No LBC Loss"),aes(y=value[variable=="Original"&quartile=="top"],yend=value[variable=="Potential"&quartile=="top"],
+  #                                                                                         x="Original",xend="Potential",color=parameter,linetype=quartile),linetype="solid",size = 1,arrow = arrow(length = unit(0.3, "cm")))+
   theme(text = element_text(size=14))
 
 ggarrange(g1,g3,g2,g4, ncol=2, nrow=2, common.legend = TRUE, legend="bottom")

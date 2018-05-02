@@ -14,9 +14,15 @@ season="1415"
 
 dF<-read_csv(paste0(getwd(),"/Analysis/ES/Yield_dataset.",year,".csv"))
 
-qqp(dF$HeavyCrop,"norm")
-
 options(na.action = "na.omit")
+
+dF.large <- dF %>% filter(tree_size=="large")
+qqp(dF.large$HeavyCrop,"norm")
+dF.small <- dF %>% filter(tree_size=="small")
+qqp(dF.small$HeavyCrop,"norm")
+
+dF <- dF %>% filter(tree_size=="all")
+qqp(dF$HeavyCrop,"norm")
 
 (fm10<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+Canopy.gap.dry+Cocoa.density+pH+Mist+soil.moist+PropCPB+PropBP+No.applications.yr+Biomass+distance.cont,data=dF))
 summary(fm10)
@@ -28,6 +34,21 @@ summary(fm11)
 fm11s<-standardize(fm11)
 summary(fm11s)
 
+(fm12<-lm(HeavyCrop~Tmax+CN.ratio+Tot.P+Shade.density+Canopy.gap.dry+Cocoa.density+pH+Mist+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF.large))
+summary(fm12)
+fm12s<-standardize(fm12)
+summary(fm12s)
+
+(fm13<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+Canopy.gap.dry+Cocoa.density+pH+Mist+soil.moist+PropCPB+PropBP+No.applications.yr+Biomass+distance.cont,data=dF.small))
+summary(fm13)
+fm13s<-standardize(fm13)
+summary(fm13s)
+
+(fm14<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+Canopy.gap.dry+Cocoa.density+pH+Mist+PropCPB+No.applications.yr+Biomass,data=dF.small))
+summary(fm14)
+fm14s<-standardize(fm14)
+summary(fm14s)
+
 #2014/15
 (fm01<-lm(HeavyCrop~Age.of.cocoa+Cocoa.density+pH+Tot.P+soil.moist+PropCPB+No.applications.yr+Biomass+distance.cont,data=dF))
 summary(fm01)
@@ -35,10 +56,11 @@ fm01s<-standardize(fm01)
 summary(fm01s)
 
 options(na.action = "na.fail")
-fm01d<-dredge(fm11s)
+fm01d<-dredge(fm12s)
+fm02d<-dredge(fm14s)
 
 #delta AIC = 6, 12 models
-dredg.m01<-subset(fm01d,delta<6)
+dredg.m01<-subset(fm02d,delta<6)
 topmodels1.avg<-model.avg(dredg.m01)
 sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta6.txt"))
 summary(topmodels1.avg)
