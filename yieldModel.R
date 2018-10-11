@@ -1,5 +1,4 @@
 #Code for analyzing output of cocoa yield model
-#NEED TO UPDATE CONFIDENCE INTERVALS
 
 library(MuMIn)
 library(arm)
@@ -24,7 +23,7 @@ qqp(dF.small$HeavyCrop,"norm")
 dF <- dF %>% filter(tree_size=="all")
 qqp(dF$HeavyCrop,"norm")
 
-(fm10<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+Canopy.gap.dry+Cocoa.density+pH+Mist+soil.moist+PropCPB+PropBP+No.applications.yr+Biomass+distance.cont,data=dF))
+(fm10<-lm(HeavyCrop~Tmax+Chset+CN.ratio+K.meq+Tot.P+Shade.density+Age.of.cocoa+poly(Canopy.gap.dry,2)+Cocoa.density+pH+Mist+soil.moist+PropCPB+PropBP+No.applications.yr+Biomass+distance.cont,data=dF))
 summary(fm10)
 fm10s<-standardize(fm10)
 summary(fm10s)
@@ -56,11 +55,11 @@ fm01s<-standardize(fm01)
 summary(fm01s)
 
 options(na.action = "na.fail")
-fm01d<-dredge(fm12s)
+fm01d<-dredge(fm01s)
 fm02d<-dredge(fm14s)
 
 #delta AIC = 6, 12 models
-dredg.m01<-subset(fm02d,delta<6)
+dredg.m01<-subset(fm01d,delta<6)
 topmodels1.avg<-model.avg(dredg.m01)
 sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,".median_delta6.txt"))
 summary(topmodels1.avg)
