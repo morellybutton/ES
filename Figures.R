@@ -176,7 +176,7 @@ g3<-grid.arrange(g1,g2,ncol=2)
 ggsave("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Supp.Fig5_labour.input.costs.pdf",g3,height=4,width=9)
 
 #Final Changes to Poverty Indices
-dF.2<-read.csv(paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
+dF.2<-read.csv(paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.alt.NewMeans.csv"))
 dF.3 <- dF.2 %>% select(-X) %>% gather(key="variable",value="value",c(-Measure,-parameter,-quartile,-Lower,-Upper)) %>%
   mutate(parameter=replace(parameter,parameter=="NoLoss","No LBC Loss"),parameter=replace(parameter,parameter=="All","All Options"),parameter=replace(parameter,parameter=="Capsids","Capsid")) %>%
   mutate(Lower=replace(Lower,variable=="Original",NA),Upper=replace(Upper,variable=="Original",NA))
@@ -289,7 +289,8 @@ g4<-ggplot() + geom_point(data=dF.3 %>% filter(Measure=="Satisfaction"&parameter
   theme(text = element_text(size=14),legend.title = element_blank())
 
 ggarrange(g1,g3,g2,g4, ncol=2, nrow=2, common.legend = TRUE, legend="bottom")
-ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure3_changeinpovertyindices.byquartile.pdf"),height=7,width=8)
+ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure3_changeinpovertyindices.alt.byquartile.pdf"),height=7,width=8)
+#ggsave(paste0("/users/alex/Documents/Research/Africa/ECOLIMITS/Pubs/EcosystemServices/Figure3_changeinpovertyindices.byquartile.pdf"),height=7,width=8)
 
 #compare modelled yield increases vs just doubling existing yields, recalculate input costs using equation
 dF.3<-read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv"))

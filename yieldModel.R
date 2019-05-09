@@ -107,7 +107,7 @@ Modnames <- paste("mod", 1:length(cand.set), sep = " ")
 res.table <-aictab(cand.set = cand.set, modnames = Modnames, sort = TRUE)
 write.csv(res.table,paste0(getwd(),"/Analysis/ES/AICtab_HC",season,"_delta6.median.csv"))
 
-topmodels2.avg<-model.avg(cand.set) 
+topmodels2.avg<-MuMIn::model.avg(cand.set) 
 sink(paste0(getwd(),"/Analysis/ES/Model.Average_HC",season,"_delta6.median.txt"))
 summary(topmodels2.avg)
 sink() 

@@ -13,6 +13,7 @@ dF.pov <- dF.pov %>% rename(plot=PLOTCODE)
 quart<-dF.pov %>% group_by(Cocoa.income.quart) %>% summarise(income=max(Cocoa.Income,na.rm=T))
 
 dF.income<-data.frame(read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.",season,".csv")),stringsAsFactors = F)
+dF.income.2<-data.frame(read.csv(paste0(getwd(),"/Analysis/ES/Income.calculations.alt.",season,".csv")),stringsAsFactors = F)
 
 dF.income <- left_join(dF.income,dF.pov %>% select(plot,Cocoa.Income,Cocoa.income.quart),by="plot")
 dF.income <- dF.income %>% rename(Survey.income = Cocoa.Income) %>% mutate(i.Survey.income.fert=Survey.income*i.prop.fert,i.Survey.income.fert.lwr=Survey.income*i.prop.fert.lwr,i.Survey.income.fert.upr=Survey.income*i.prop.fert.upr,
@@ -20,10 +21,19 @@ dF.income <- dF.income %>% rename(Survey.income = Cocoa.Income) %>% mutate(i.Sur
                                                                            i.Survey.income.cpb=Survey.income*i.prop.cpb,i.Survey.income.cpb.lwr=Survey.income*i.prop.cpb.lwr,i.Survey.income.cpb.upr=Survey.income*i.prop.cpb.upr,
                                                                            i.Survey.income.all=Survey.income*i.prop.all,i.Survey.income.all.lwr=Survey.income*i.prop.all.lwr,i.Survey.income.all.upr=Survey.income*i.prop.all.upr,
                                                                            i.Survey.income.noloss=Survey.income*i.prop.noloss)
+dF.income.2 <- left_join(dF.income.2,dF.pov %>% select(plot,Cocoa.Income,Cocoa.income.quart),by="plot")
+dF.income.2 <- dF.income.2 %>% rename(Survey.income = Cocoa.Income) %>% mutate(i.Survey.income.fert=Survey.income*i.prop.fert,i.Survey.income.fert.lwr=Survey.income*i.prop.fert.lwr,i.Survey.income.fert.upr=Survey.income*i.prop.fert.upr,
+                                                                           i.Survey.income.bmass=Survey.income*i.prop.bmass,i.Survey.income.bmass.lwr=Survey.income*i.prop.bmass.lwr,i.Survey.income.bmass.upr=Survey.income*i.prop.bmass.upr,
+                                                                           i.Survey.income.cpb=Survey.income*i.prop.cpb,i.Survey.income.cpb.lwr=Survey.income*i.prop.cpb.lwr,i.Survey.income.cpb.upr=Survey.income*i.prop.cpb.upr,
+                                                                           i.Survey.income.all=Survey.income*i.prop.all,i.Survey.income.all.lwr=Survey.income*i.prop.all.lwr,i.Survey.income.all.upr=Survey.income*i.prop.all.upr,
+                                                                           i.Survey.income.noloss=Survey.income*i.prop.noloss)
+
 #remove duplicates
 dF.income <- dF.income %>% distinct(plot,.keep_all=T)
+dF.income.2 <- dF.income.2 %>% distinct(plot,.keep_all=T)
 
 write.csv(dF.income,paste0(getwd(),"/Analysis/ES/Income.calculations.",season,"whhold.csv"))
+write.csv(dF.income.2,paste0(getwd(),"/Analysis/ES/Income.calculations.alt.",season,"whhold.csv"))
 
 #analyze poverty measures as predictors of quartiles
 #basic necessities
@@ -100,6 +110,9 @@ exp(coef(x))
 exp(confint.default(x))
 
 #to calculate probability of household having a child miss school at new income (fertiliser, biomass & capsids):
+#try with alternative income calculations
+dF.income<-dF.income.2
+
 #fertiliser
 results<-list()
 for(i in 1:nrow(dF.income)){
@@ -321,9 +334,10 @@ educ.noloss$New.income<-dF.income$i.Survey.income.noloss
 educ.noloss$parameter<-"No LBC Loss"
 
 educ<-bind_rows(educ.fert,educ.bmass,educ.cpb,educ.all,educ.noloss)
-write.csv(educ,paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
+#write.csv(educ,paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
+write.csv(educ,paste0(getwd(),"/Analysis/ES/Education.probabilities.alt.wincome.csv"))
 
-educ<-read_csv(paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
+#educ<-read_csv(paste0(getwd(),"/Analysis/ES/Education.probabilities.wincome.csv"))
 educ <- left_join(educ,dF.income %>% select(plot,Cocoa.income.quart),by="plot")
 #group top 2 quartiles and bottom two
 educ <- educ %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,Cocoa.income.quart<3,"bottom"))
@@ -562,9 +576,10 @@ TV.noloss$New.income<-dF.income$i.Survey.income.noloss
 TV.noloss$parameter<-"No LBC Loss"
 
 TV<-bind_rows(TV.fert,TV.bmass,TV.cpb,TV.all,TV.noloss)
-write.csv(TV,paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
+#write.csv(TV,paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
+write.csv(TV,paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.alt.wincome.csv"))
 
-TV<-read_csv(paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
+#TV<-read_csv(paste0(getwd(),"/Analysis/ES/Asset.tv.probabilities.wincome.csv"))
 TV <- left_join(TV,dF.income %>% select(plot,Cocoa.income.quart),by="plot")
 #group top 2 quartiles and bottom two
 TV <- TV %>% mutate(quartile="top") %>% mutate(quartile=replace(quartile,Cocoa.income.quart<3,"bottom"))
@@ -737,4 +752,5 @@ food<-left_join(food,food.upr,by=c("parameter","quartile","Measure"))
 
 output=bind_rows(output,food)
 
-write.csv(output,paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
+#write.csv(output,paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.NewMeans.csv"))
+write.csv(output,paste0(getwd(),"/Analysis/ES/PovertyMeasureChanges.alt.NewMeans.csv"))
